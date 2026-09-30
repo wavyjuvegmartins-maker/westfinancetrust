@@ -1,0 +1,185 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Brand palette, taken from the West Finance Trust logo.
+     Theme-aware tokens point at variables that flip under .dark. */
+  --color-ink: var(--ink); /* primary text */
+  --color-surface: var(--surface); /* page background */
+  --color-paper: var(--paper); /* alternate section background */
+  --color-deep: var(--deep); /* navy brand bands, dark in both themes */
+  --color-line: var(--line);
+  --color-slate: var(--slate); /* secondary text */
+  --color-amber-ink: var(--amber-ink); /* amber text on light surfaces */
+  --color-amber-soft: var(--amber-soft);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  /* dashboard surfaces */
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  /* chart series: validated categorical order, stepped per theme */
+  --color-cat-1: var(--cat-1);
+  --color-cat-2: var(--cat-2);
+  --color-cat-3: var(--cat-3);
+  --color-cat-4: var(--cat-4);
+  --color-cat-5: var(--cat-5);
+  --color-cat-6: var(--cat-6);
+  --color-cat-7: var(--cat-7);
+  --color-navy: #243552;
+  --color-navy-soft: #3a4b6b;
+  --color-amber: #e8952b;
+  --color-amber-strong: #d07f16;
+
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-display);
+  --font-mono: var(--font-body);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --ink: #0f1b33;
+  --surface: #ffffff;
+  --paper: #f3f5f9;
+  --deep: #0f1b33;
+  --line: #dce2ec;
+  --slate: #56627a;
+  --amber-ink: #8f5306;
+  --amber-soft: #fcefdc;
+  --positive: #047857;
+  --negative: #b42318;
+  --canvas: #f1f3f8;
+  --panel: #ffffff;
+  --cat-1: #2a78d6;
+  --cat-2: #eb6834;
+  --cat-3: #1baf7a;
+  --cat-4: #eda100;
+  --cat-5: #e87ba4;
+  --cat-6: #008300;
+  --cat-7: #4a3aa7;
+
+  --background: #ffffff;
+  --foreground: #0f1b33;
+  --card: #ffffff;
+  --card-foreground: #0f1b33;
+  --popover: #ffffff;
+  --popover-foreground: #0f1b33;
+  --primary: #0f1b33;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f5f9;
+  --secondary-foreground: #0f1b33;
+  --muted: #f3f5f9;
+  --muted-foreground: #56627a;
+  --accent: #fcefdc;
+  --accent-foreground: #0f1b33;
+  --destructive: #b42318;
+  --border: #dce2ec;
+  --input: #c3cbd9;
+  --ring: #d07f16;
+  --radius: 0.625rem;
+}
+
+.dark {
+  color-scheme: dark;
+  --ink: #e8edf5;
+  --surface: #0a1222;
+  --paper: #0f1a2d;
+  --deep: #14213a;
+  --line: #22314b;
+  --slate: #9ba8bf;
+  --amber-ink: #f2b660;
+  --amber-soft: #3a2a14;
+  --positive: #34d399;
+  --negative: #f97066;
+  --canvas: #070e1b;
+  --panel: #0f1a2d;
+  --cat-1: #3987e5;
+  --cat-2: #d95926;
+  --cat-3: #199e70;
+  --cat-4: #c98500;
+  --cat-5: #d55181;
+  --cat-6: #008300;
+  --cat-7: #9085e9;
+
+  --background: #0a1222;
+  --foreground: #e8edf5;
+  --card: #0f1a2d;
+  --card-foreground: #e8edf5;
+  --popover: #0f1a2d;
+  --popover-foreground: #e8edf5;
+  --primary: #e8edf5;
+  --primary-foreground: #0a1222;
+  --secondary: #0f1a2d;
+  --secondary-foreground: #e8edf5;
+  --muted: #0f1a2d;
+  --muted-foreground: #9ba8bf;
+  --accent: #3a2a14;
+  --accent-foreground: #e8edf5;
+  --destructive: #f97066;
+  --border: #22314b;
+  --input: #2c3d5c;
+  --ring: #e8952b;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply scroll-smooth font-sans;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading text-balance;
+  }
+  p {
+    @apply text-pretty;
+  }
+  ::selection {
+    @apply bg-amber/35 text-ink;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-amber-strong;
+  }
+}
+
+@utility container-page {
+  @apply mx-auto w-full max-w-[76rem] px-4 sm:px-6 lg:px-8;
+}
+
+/* Figures that must line up: rates, balances, amounts */
+@utility figures {
+  font-variant-numeric: tabular-nums lining-nums;
+}
