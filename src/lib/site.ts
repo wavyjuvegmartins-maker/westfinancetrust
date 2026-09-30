@@ -5,7 +5,7 @@ export const site = {
     "Checking, savings and cards you open in person and manage online. Low-rate loans are coming soon.",
   phone: "+1 (800) 555-0142", // TODO: real support number
   phoneHref: "tel:+18005550142",
-  email: "support@westfinancetrust.com", // TODO: confirm support inbox
+  email: "support@westfinacetrust.com", // TODO: confirm support inbox
   hours: [
     { days: "Monday to Friday", time: "8:00 am to 8:00 pm" },
     { days: "Saturday", time: "9:00 am to 2:00 pm" },

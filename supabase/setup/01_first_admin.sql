@@ -19,7 +19,7 @@ select
   'admin',
   false
 from auth.users u
-where u.email = 'admin@westfinancetrust.com';  -- CHANGE: the email you used in step 1
+where u.email = 'admin@westfinacetrust.com';  -- CHANGE: the email you used in step 1
 
 -- Check it worked: you should see one row with role = admin.
 select user_id, first_name, last_name, email, role from public.profiles where role = 'admin';

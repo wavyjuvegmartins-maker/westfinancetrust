@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 const reminders = [
-  "Check the address bar shows westfinancetrust.com before you enter your details.",
+  "Check the address bar shows westfinacetrust.com before you enter your details.",
   "We’ll never ask for your password or a one-time code by phone, email or text.",
   "Using a shared computer? Log out and close the browser when you’re done.",
 ];
