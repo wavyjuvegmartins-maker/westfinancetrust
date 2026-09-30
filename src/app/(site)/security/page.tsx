@@ -31,7 +31,8 @@ const neverAsk = [
 ];
 
 const tips = [
-  "Type our address yourself instead of following links in messages",
+  `Type our address, ${site.domain}, yourself instead of following links in messages`,
+  `Our emails only ever come from an address ending @${site.domain}`,
   "Use a password you don’t use anywhere else",
   "Keep your phone’s software up to date",
   "Turn on alerts for every card payment",

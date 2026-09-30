@@ -41,7 +41,7 @@ export function layout({ preheader, body, footer }: { preheader: string; body: s
     </table>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px"><tr><td style="padding:20px 8px 0;${muted};font-size:12px;line-height:1.5">
       ${footer ? `<p style="margin:0 0 8px">${escape(footer)}</p>` : ""}
-      <p style="margin:0">We will never ask for your password by phone, email or text. Questions? Call ${escape(site.phone)}.</p>
+      <p style="margin:0">We only email from addresses ending @${escape(site.domain)}, and we will never ask for your password by phone, email or text. Questions? Call ${escape(site.phone)}.</p>
     </td></tr></table>
   </td></tr></table>
 </body></html>`;
@@ -52,7 +52,7 @@ export function textLayout(paragraphs: string[], footer?: string) {
   return [
     ...paragraphs,
     ...(footer ? [footer] : []),
-    `We will never ask for your password by phone, email or text. Questions? Call ${site.phone}.`,
+    `We only email from addresses ending @${site.domain}, and we will never ask for your password by phone, email or text. Questions? Call ${site.phone}.`,
     site.name,
   ].join("\n\n");
 }
