@@ -183,3 +183,37 @@
 @utility figures {
   font-variant-numeric: tabular-nums lining-nums;
 }
+
+/* Launch screen for the installed app (components/app/splash.tsx).
+   Hidden in browser tabs; shown from first paint when opened from the home
+   screen. If scripts fail it still clears itself after a few seconds. */
+.app-splash {
+  display: none;
+}
+@media (display-mode: standalone) {
+  .app-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: env(safe-area-inset-top) 1rem env(safe-area-inset-bottom);
+    background: radial-gradient(120% 80% at 50% 30%, #1d2c4a 0%, #0f1b33 60%);
+    transition: opacity 0.35s ease, visibility 0.35s;
+    animation: app-splash-fallback 0.35s ease 6s forwards;
+  }
+  .app-splash[data-state="leaving"] {
+    opacity: 0;
+  }
+  .app-splash[data-state="gone"] {
+    display: none;
+  }
+}
+@keyframes app-splash-fallback {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}

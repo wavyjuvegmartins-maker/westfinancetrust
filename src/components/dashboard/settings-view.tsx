@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { KeyRound, Loader2, LogOut, MonitorSmartphone, Monitor, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { signOut } from "@/app/actions";
+import { InstallAppRow } from "@/components/app/install";
 import type { Prefs } from "@/components/dashboard/data";
 import { useBank } from "@/components/dashboard/store";
 import { Avatar, Panel, PanelHeader } from "@/components/dashboard/ui";
@@ -177,6 +178,7 @@ export function SettingsView() {
               className="data-checked:bg-amber"
             />
           </div>
+          <InstallAppRow />
         </Panel>
       </div>
 

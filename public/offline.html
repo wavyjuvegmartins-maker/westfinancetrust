@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f1b33" />
+    <title>You're offline | West Finance Trust</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex; align-items: center; justify-content: center;
+        padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+        background: radial-gradient(120% 80% at 50% 30%, #1d2c4a 0%, #0f1b33 60%);
+        color: #e8edf5; text-align: center;
+        font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main { max-width: 22rem; }
+      img { width: auto; height: 72px; }
+      h1 { margin: 1.5rem 0 0.5rem; font-size: 1.5rem; line-height: 1.2; letter-spacing: -0.02em; color: #fff; }
+      p { margin: 0; color: rgba(232, 237, 245, 0.72); }
+      button {
+        margin-top: 2rem; height: 3rem; padding: 0 1.75rem; border: 0; border-radius: 999px;
+        background: #e8952b; color: #0f1b33; font: inherit; font-weight: 600; cursor: pointer;
+      }
+      button:hover { background: #d07f16; }
+      button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+      small { display: block; margin-top: 1.5rem; color: rgba(232, 237, 245, 0.5); font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/images/logo-light.webp" alt="" width="336" height="344" />
+      <h1>You're offline</h1>
+      <p>We couldn't reach West Finance Trust. Check your Wi-Fi or mobile data, then try again.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+      <small>For your security, account details are never stored on this device.</small>
+    </main>
+    <script>
+      // Reload by itself as soon as the connection is back.
+      addEventListener("online", function () { location.reload(); });
+    </script>
+  </body>
+</html>

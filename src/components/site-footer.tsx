@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { InstallAppButton } from "@/components/app/install";
 import { Logo } from "@/components/logo";
 import { ratesNote } from "@/lib/rates";
 import { nav, site } from "@/lib/site";
@@ -51,6 +52,11 @@ export function SiteFooter() {
                     </Link>
                   </li>
                 ))}
+                {group.title === "Online banking" && (
+                  <li>
+                    <InstallAppButton className="text-white/85 transition-colors hover:text-amber" />
+                  </li>
+                )}
               </ul>
             </div>
           ))}
