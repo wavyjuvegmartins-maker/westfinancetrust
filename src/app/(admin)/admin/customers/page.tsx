@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search, UserPlus } from "lucide-react";
-import { AdminPanel, PageTitle, StatusPill, money } from "@/components/admin/ui";
+import { ChevronRight, Search, UserPlus } from "lucide-react";
+import { AdminPanel, PageTitle, PersonBadge, StatusPill, money, primaryAction } from "@/components/admin/ui";
 import { listCustomers } from "@/lib/admin/queries";
 
 export const metadata: Metadata = { title: "Customers" };
@@ -16,7 +16,7 @@ export default async function CustomersPage({ searchParams }: PageProps<"/admin/
       <PageTitle
         title="Customers"
         action={
-          <Link href="/admin/customers/new" className="inline-flex h-11 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-surface hover:bg-ink/85">
+          <Link href="/admin/customers/new" className={`${primaryAction} max-lg:hidden`}>
             <UserPlus className="size-4" aria-hidden /> Register a customer
           </Link>
         }
@@ -25,7 +25,7 @@ export default async function CustomersPage({ searchParams }: PageProps<"/admin/
       </PageTitle>
 
       <AdminPanel className="p-0 sm:p-0">
-        <form className="border-b border-line p-4" role="search">
+        <form className="border-b border-line p-3 sm:p-4" role="search">
           <label htmlFor="customer-search" className="sr-only">
             Search customers
           </label>
@@ -46,7 +46,31 @@ export default async function CustomersPage({ searchParams }: PageProps<"/admin/
             {query ? `No customers match “${query}”.` : "No customers yet. Register your first one to get started."}
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Phones: one tappable row per customer. */}
+          <ul className="divide-y divide-line md:hidden">
+            {customers.map((c) => (
+              <li key={c.id}>
+                <Link href={`/admin/customers/${c.id}`} className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-canvas">
+                  <PersonBadge first={c.first_name} last={c.last_name} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold text-ink">
+                      {c.first_name} {c.last_name}
+                    </span>
+                    <span className="block truncate text-xs text-slate">
+                      {c.user_id}, {c.accounts.length} {c.accounts.length === 1 ? "account" : "accounts"}
+                    </span>
+                    <span className="mt-1 block">
+                      <StatusPill status={c.status} mustChange={c.must_change_password} />
+                    </span>
+                  </span>
+                  <span className="figures shrink-0 text-right text-sm font-semibold text-ink">{money(c.accounts.reduce((s, a) => s + a.balance, 0))}</span>
+                  <ChevronRight className="size-4 shrink-0 text-slate" aria-hidden />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-sm">
               <thead className="text-xs text-slate">
                 <tr className="border-b border-line">
@@ -77,6 +101,7 @@ export default async function CustomersPage({ searchParams }: PageProps<"/admin/
               </tbody>
             </table>
           </div>
+          </>
         )}
       </AdminPanel>
     </>

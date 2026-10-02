@@ -101,7 +101,7 @@ export function RegisterCustomerForm({ isAdmin }: { isAdmin: boolean }) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
+    <form onSubmit={onSubmit} noValidate className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr] lg:gap-5">
       <AdminPanel>
         <h2 className="font-heading text-lg font-semibold text-ink">Customer details</h2>
         <p className="mt-0.5 text-sm text-slate">Check them against the customer’s ID before you continue.</p>
@@ -143,7 +143,7 @@ export function RegisterCustomerForm({ isAdmin }: { isAdmin: boolean }) {
         </div>
       </AdminPanel>
 
-      <div className="grid content-start gap-5">
+      <div className="grid min-w-0 content-start gap-4 lg:gap-5">
         <AdminPanel>
           <h2 className="font-heading text-lg font-semibold text-ink">Accounts to open</h2>
           <p className="mt-0.5 text-sm text-slate">They’re assigned to this customer straight away.</p>

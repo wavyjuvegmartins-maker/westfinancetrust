@@ -21,6 +21,25 @@ const actionLabel: Record<string, string> = {
   email_waitlist: "Emailed a loan waitlist",
 };
 
+type Details = { amount?: number; description?: string; user_id?: string; name?: string; type?: string; reason?: string; account_mask?: string; added_via?: string };
+
+/** One line summing up what an audit entry recorded. */
+function describe(details: unknown) {
+  const d = (details ?? {}) as Details;
+  return [
+    d.amount !== undefined ? money(Number(d.amount)) : null,
+    d.description,
+    d.user_id ? `login ${d.user_id}` : null,
+    d.type,
+    d.name,
+    d.account_mask ? `••${d.account_mask}` : null,
+    d.added_via ? (d.added_via === "phone" ? "by phone" : "in branch") : null,
+    d.reason,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
 export default async function AuditPage() {
   const rows = await listAudit();
 
@@ -31,7 +50,30 @@ export default async function AuditPage() {
         {rows.length === 0 ? (
           <p className="px-6 py-14 text-center text-slate">Nothing recorded yet.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <ul className="divide-y divide-line md:hidden">
+            {rows.map((r) => (
+              <li key={r.id} className="px-4 py-3.5">
+                <p className="flex items-baseline justify-between gap-3">
+                  <span className="font-semibold text-ink">
+                    {r.target_type === "profile" && r.target_id ? (
+                      <Link href={`/admin/customers/${r.target_id}`} className="hover:text-amber-ink">
+                        {actionLabel[r.action] ?? r.action}
+                      </Link>
+                    ) : (
+                      (actionLabel[r.action] ?? r.action)
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs text-slate">{shortDate(r.created_at)}</span>
+                </p>
+                <p className="mt-0.5 text-sm text-slate">
+                  {r.actor ? `${r.actor.first_name} ${r.actor.last_name}` : "System"}
+                  {describe(r.details) && `: ${describe(r.details)}`}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-sm">
               <thead className="text-xs text-slate">
                 <tr className="border-b border-line">
@@ -43,19 +85,7 @@ export default async function AuditPage() {
               </thead>
               <tbody className="divide-y divide-line">
                 {rows.map((r) => {
-                  const d = r.details as { amount?: number; description?: string; user_id?: string; name?: string; type?: string; reason?: string; account_mask?: string; added_via?: string };
-                  const detail = [
-                    d.amount !== undefined ? money(Number(d.amount)) : null,
-                    d.description,
-                    d.user_id ? `login ${d.user_id}` : null,
-                    d.type,
-                    d.name,
-                    d.account_mask ? `••${d.account_mask}` : null,
-                    d.added_via ? (d.added_via === "phone" ? "by phone" : "in branch") : null,
-                    d.reason,
-                  ]
-                    .filter(Boolean)
-                    .join(", ");
+                  const detail = describe(r.details);
                   return (
                     <tr key={r.id}>
                       <td className="px-5 py-3 whitespace-nowrap text-slate">{shortDate(r.created_at)}</td>
@@ -76,6 +106,7 @@ export default async function AuditPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </AdminPanel>
     </>

@@ -17,7 +17,7 @@ export default async function WaitlistPage() {
         People who asked to hear when a loan opens, from the website or online banking. When a loan goes live, an admin emails its
         waitlist once. The email tells them to apply by phone or at the branch.
       </PageTitle>
-      <ul className="grid gap-4 sm:grid-cols-2">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
         {rows.map((r) => {
           const name = loanProducts.find((l) => l.id === r.product)?.name ?? r.product;
           return (

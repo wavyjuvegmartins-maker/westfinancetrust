@@ -3,10 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CreditCard } from "lucide-react";
 import { AddPayeeButton, CashButtons, LoginTools, OpenAccountButton, RemovePayeeButton } from "@/components/admin/customer-tools";
-import { AdminPanel, Pill, StatusPill, money, shortDate, txnLabel } from "@/components/admin/ui";
+import { AdminPanel, PersonBadge, Pill, SignedMoney, StatusPill, money, shortDate, txnLabel } from "@/components/admin/ui";
 import { getSessionUser } from "@/lib/auth/session";
 import { getCustomer } from "@/lib/admin/queries";
-import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Customer" };
 
@@ -24,37 +23,56 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
         <ArrowLeft className="size-4" aria-hidden /> Customers
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-ink">
-              {c.first_name} {c.last_name}
-            </h1>
-            <StatusPill status={c.status} mustChange={c.must_change_password} />
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4 sm:mb-6">
+        <div className="flex min-w-0 items-center gap-3.5">
+          <PersonBadge first={c.first_name} last={c.last_name} className="size-12 text-base sm:size-14 sm:text-lg" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h1 className="font-heading text-[1.6rem] leading-tight font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
+                {c.first_name} {c.last_name}
+              </h1>
+              <StatusPill status={c.status} mustChange={c.must_change_password} />
+            </div>
+            <p className="mt-0.5 text-sm text-slate sm:text-base">
+              Login ID <span className="font-semibold text-ink">{c.user_id}</span>, since{" "}
+              {new Date(c.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            </p>
           </div>
-          <p className="mt-1 text-slate">
-            Login ID <span className="font-semibold text-ink">{c.user_id}</span>, customer since{" "}
-            {new Date(c.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-          </p>
         </div>
-        <p className="text-right">
-          <span className="block text-sm text-slate">Total balance</span>
-          <span className="figures font-heading text-2xl font-semibold text-ink">{money(total)}</span>
+        <p className="max-sm:w-full max-sm:rounded-2xl max-sm:bg-deep max-sm:px-4 max-sm:py-3.5 max-sm:text-white sm:text-right">
+          <span className="block text-sm text-slate max-sm:text-white/60">Total balance</span>
+          <span className="figures font-heading text-2xl font-semibold text-ink max-sm:text-[1.9rem] max-sm:tracking-[-0.03em] max-sm:text-white">{money(total)}</span>
         </p>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
-        <div className="grid content-start gap-5">
-          <AdminPanel aria-labelledby="accounts-title">
+      {/* Phones: jump straight to a section of this long page. */}
+      <nav aria-label="Sections" className="sticky top-[calc(env(safe-area-inset-top)+4rem)] z-20 -mx-4 mb-4 flex gap-2 overflow-x-auto bg-canvas/90 px-4 py-2 backdrop-blur-md [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:hidden">
+        {[
+          ["#accounts-title", "Accounts"],
+          ["#payees-title", "Payees"],
+          ["#ledger-title", "Activity"],
+          ["#login-title", "Login"],
+          ["#cards-title", "Cards"],
+          ["#details-title", "Details"],
+        ].map(([href, label]) => (
+          <a key={href} href={href} className="shrink-0 rounded-full bg-panel px-3.5 py-1.5 text-sm font-semibold text-ink ring-1 ring-line">
+            {label}
+          </a>
+        ))}
+      </nav>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr] lg:gap-5">
+        <div className="grid min-w-0 content-start gap-4 max-lg:contents lg:gap-5">
+          <AdminPanel aria-labelledby="accounts-title" className="max-lg:order-1">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 id="accounts-title" className="font-heading text-lg font-semibold text-ink">Accounts</h2>
+              <h2 id="accounts-title" className="scroll-mt-32 font-heading text-lg font-semibold text-ink">Accounts</h2>
               <OpenAccountButton profileId={c.id} isAdmin={isAdmin} existing={c.accounts.map((a) => a.type)} />
             </div>
             {c.accounts.length ? (
               <ul className="grid gap-3">
                 {c.accounts.map((a) => (
-                  <li key={a.id} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-canvas px-4 py-4">
-                    <span>
+                  <li key={a.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-2xl bg-canvas px-4 py-4">
+                    <span className="min-w-0">
                       <span className="block font-semibold text-ink">{a.name}</span>
                       <span className="text-xs text-slate">
                         No. {a.account_number}
@@ -62,7 +80,7 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
                         {a.status !== "active" ? `, ${a.status}` : ""}
                       </span>
                     </span>
-                    <span className="flex flex-wrap items-center gap-4">
+                    <span className="flex flex-wrap items-center gap-x-4 gap-y-3 max-sm:w-full max-sm:justify-between">
                       <span className="figures font-heading text-xl font-semibold text-ink">{money(a.balance)}</span>
                       <CashButtons account={{ id: a.id, number: a.account_number, name: a.name, balance: a.balance }} canPost={isAdmin && a.status === "active"} />
                     </span>
@@ -74,10 +92,29 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
             )}
           </AdminPanel>
 
-          <AdminPanel aria-labelledby="ledger-title">
-            <h2 id="ledger-title" className="mb-4 font-heading text-lg font-semibold text-ink">Recent activity</h2>
+          <AdminPanel aria-labelledby="ledger-title" className="max-lg:order-3">
+            <h2 id="ledger-title" className="mb-4 scroll-mt-32 font-heading text-lg font-semibold text-ink">Recent activity</h2>
             {txns.length ? (
-              <div className="overflow-x-auto">
+              <>
+              <ul className="-mx-1 divide-y divide-line md:hidden">
+                {txns.map((t) => (
+                  <li key={t.id} className="flex items-start justify-between gap-3 px-1 py-3">
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-ink">{t.description}</span>
+                      <span className="block text-xs text-slate">
+                        {txnLabel[t.type] ?? t.type}, {t.account?.name} ••{t.account?.account_number.slice(-4)}
+                      </span>
+                      <span className="block text-xs text-slate">{shortDate(t.created_at)}</span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <SignedMoney amount={t.amount} className="block text-sm" />
+                      {t.status === "pending" && <Pill className="mt-1 bg-amber-soft text-amber-ink">Pending</Pill>}
+                      {t.balance_after !== null && <span className="figures block text-xs text-slate">{money(t.balance_after)}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-left text-sm">
                   <thead className="text-xs text-slate">
                     <tr className="border-b border-line">
@@ -102,9 +139,8 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
                           {txnLabel[t.type] ?? t.type}
                           {t.status === "pending" && <Pill className="ml-2 bg-amber-soft text-amber-ink">Pending</Pill>}
                         </td>
-                        <td className={cn("figures py-2.5 pr-4 text-right font-semibold whitespace-nowrap", t.amount > 0 ? "text-positive" : "text-ink")}>
-                          {t.amount > 0 ? "+" : "−"}
-                          {money(Math.abs(t.amount))}
+                        <td className="py-2.5 pr-4 text-right">
+                          <SignedMoney amount={t.amount} />
                         </td>
                         <td className="figures py-2.5 text-right whitespace-nowrap text-slate">{t.balance_after === null ? "" : money(t.balance_after)}</td>
                       </tr>
@@ -112,15 +148,16 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
                   </tbody>
                 </table>
               </div>
+              </>
             ) : (
               <p className="rounded-2xl bg-canvas px-4 py-8 text-center text-sm text-slate">No activity yet.</p>
             )}
           </AdminPanel>
         </div>
 
-        <div className="grid content-start gap-5">
-          <AdminPanel aria-labelledby="details-title">
-            <h2 id="details-title" className="mb-3 font-heading text-lg font-semibold text-ink">Details</h2>
+        <div className="grid min-w-0 content-start gap-4 max-lg:contents lg:gap-5">
+          <AdminPanel aria-labelledby="details-title" className="max-lg:order-6">
+            <h2 id="details-title" className="scroll-mt-32 mb-3 font-heading text-lg font-semibold text-ink">Details</h2>
             <dl className="divide-y divide-line text-sm">
               {[
                 ["Email", c.email],
@@ -129,19 +166,19 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
               ].map(([term, detail]) => (
                 <div key={term} className="flex justify-between gap-4 py-2.5">
                   <dt className="text-slate">{term}</dt>
-                  <dd className="text-right font-medium text-ink">{detail}</dd>
+                  <dd className="min-w-0 text-right font-medium break-words text-ink">{detail}</dd>
                 </div>
               ))}
             </dl>
           </AdminPanel>
 
-          <AdminPanel aria-labelledby="login-title">
-            <h2 id="login-title" className="mb-3 font-heading text-lg font-semibold text-ink">Online banking login</h2>
+          <AdminPanel aria-labelledby="login-title" className="max-lg:order-4">
+            <h2 id="login-title" className="scroll-mt-32 mb-3 font-heading text-lg font-semibold text-ink">Online banking login</h2>
             <LoginTools profileId={c.id} status={c.status} isAdmin={isAdmin} />
           </AdminPanel>
 
-          <AdminPanel aria-labelledby="cards-title">
-            <h2 id="cards-title" className="mb-3 font-heading text-lg font-semibold text-ink">Cards</h2>
+          <AdminPanel aria-labelledby="cards-title" className="max-lg:order-5">
+            <h2 id="cards-title" className="scroll-mt-32 mb-3 font-heading text-lg font-semibold text-ink">Cards</h2>
             {cards.length ? (
               <ul className="space-y-2">
                 {cards.map((card) => (
@@ -164,9 +201,9 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
             )}
           </AdminPanel>
 
-          <AdminPanel aria-labelledby="payees-title">
+          <AdminPanel aria-labelledby="payees-title" className="max-lg:order-2">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 id="payees-title" className="font-heading text-lg font-semibold text-ink">Payees</h2>
+              <h2 id="payees-title" className="scroll-mt-32 font-heading text-lg font-semibold text-ink">Payees</h2>
               <AddPayeeButton profileId={c.id} customerName={c.first_name} />
             </div>
             {payees.length ? (

@@ -18,14 +18,16 @@ export default async function MessagesPage() {
           <p className="py-8 text-center text-slate">No messages yet.</p>
         </AdminPanel>
       ) : (
-        <ul className="grid gap-4">
+        <ul className="grid gap-3 sm:gap-4">
           {messages.map((m) => (
             <li key={m.id}>
               <AdminPanel className={m.handled_at ? "opacity-70" : ""}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-ink">
-                      {m.name} <span className="font-normal text-slate">({m.email}{m.phone ? `, ${m.phone}` : ""})</span>
+                    <p className="font-semibold text-ink">{m.name}</p>
+                    <p className="text-sm break-all text-slate">
+                      {m.email}
+                      {m.phone ? `, ${m.phone}` : ""}
                     </p>
                     <p className="mt-0.5 text-sm text-slate">
                       {topic(m.topic)}, {shortDate(m.created_at)}
