@@ -36,7 +36,7 @@ export function CardsView() {
 
   const header = (
     <div className="pt-2">
-      <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-ink">Cards</h1>
+      <h1 className="font-heading text-[1.75rem] font-semibold tracking-[-0.03em] text-ink sm:text-3xl">Cards</h1>
       <p className="mt-1 text-slate">Freeze, limit and control your debit card. Changes apply instantly.</p>
     </div>
   );
@@ -88,7 +88,7 @@ export function CardsView() {
     <div className="space-y-5">
       {header}
 
-      <div className="grid gap-5 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
         <section aria-label="Your debit card" className="relative overflow-hidden rounded-[1.75rem] bg-deep p-6 text-white sm:p-10 lg:col-span-7">
           <div aria-hidden className="pointer-events-none absolute -top-32 -right-32 size-96 rounded-full bg-amber/10 blur-3xl" />
           <BankCard card={card} holder={fullName(user)} flipped={flipped} className="relative mx-auto max-w-md" />

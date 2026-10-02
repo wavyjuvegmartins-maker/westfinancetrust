@@ -3,6 +3,8 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Running as the installed app (opened from the home screen). */
+@custom-variant standalone (@media (display-mode: standalone));
 
 @theme inline {
   /* Brand palette, taken from the West Finance Trust logo.

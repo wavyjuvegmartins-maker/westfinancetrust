@@ -122,11 +122,11 @@ export function Hero() {
           </motion.p>
 
           <motion.div {...fadeUp(0.55)} className="mt-9 flex flex-wrap gap-3">
-            <ButtonLink href="/login" className="group">
+            <ButtonLink href="/login" className="group max-sm:w-full">
               <LockKeyhole aria-hidden />
               Log in to online banking
             </ButtonLink>
-            <ButtonLink href="#getting-started" variant="outline-ink" className="group">
+            <ButtonLink href="#getting-started" variant="outline-ink" className="group max-sm:w-full">
               How to open an account
               <ArrowDownRight className="transition-transform group-hover:translate-x-0.5 group-hover:translate-y-0.5" aria-hidden />
             </ButtonLink>

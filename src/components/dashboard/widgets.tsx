@@ -57,8 +57,12 @@ export function CardWidget({ className }: { className?: string }) {
       </PanelHeader>
 
       <BankCard card={card} holder={fullName(user)} className="mx-auto w-full max-w-[22rem]" />
+      {card.frozen && (
+        <p className="mt-4 rounded-2xl bg-canvas px-4 py-3 text-sm font-semibold text-ink lg:hidden">Card frozen: payments will be declined</p>
+      )}
 
-      <div className="mt-6 flex items-center justify-between gap-4 rounded-2xl bg-canvas px-4 py-3">
+      {/* Phones freeze from the quick actions and change controls on the Cards tab, so Home stays short. */}
+      <div className="mt-6 flex items-center justify-between gap-4 rounded-2xl bg-canvas px-4 py-3 max-lg:hidden">
         <div>
           <p className="text-sm font-semibold text-ink">{card.frozen ? "Card frozen" : "Card active"}</p>
           <p className="text-xs text-slate">{card.frozen ? "Payments will be declined" : "Freeze it if you can’t find it"}</p>
@@ -88,7 +92,7 @@ export function CardWidget({ className }: { className?: string }) {
         </div>
       </div>
 
-      <div className="mt-4 border-t border-line">
+      <div className="mt-4 border-t border-line max-lg:hidden">
         <CardControls compact />
       </div>
     </Panel>

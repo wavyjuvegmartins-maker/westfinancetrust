@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import { CircleCheck, ShieldCheck } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
 import { homeFor } from "@/lib/auth/types";
 import { CardVisual } from "@/components/card-visual";
 import { LoginForm } from "@/components/forms/login-form";
 import { DrawnOrbit, Reveal, RevealGroup, RevealItem } from "@/components/motion";
+import { images } from "@/lib/images";
 import { site } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -28,12 +30,21 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <div className="grid lg:min-h-[calc(100vh-4.5rem)] lg:grid-cols-2">
-      <section className="flex items-center bg-surface px-4 py-16 sm:px-6 lg:px-16" aria-labelledby="login-title">
-        <div className="mx-auto w-full max-w-md">
-          <h1 id="login-title" className="text-[clamp(2.2rem,4vw,3rem)] leading-[1.05] font-semibold tracking-[-0.035em]">
+      {/* In the installed app on a phone this becomes an app sign-in screen: navy brand area, form on a sheet. */}
+      <section
+        className="flex items-center bg-surface px-4 py-16 sm:px-6 lg:px-16 standalone:max-lg:min-h-dvh standalone:max-lg:flex-col standalone:max-lg:items-stretch standalone:max-lg:bg-deep standalone:max-lg:p-0"
+        aria-labelledby="login-title"
+      >
+        <div className="hidden flex-col items-center px-6 pt-[calc(env(safe-area-inset-top)+3.5rem)] pb-10 text-center text-white standalone:max-lg:flex">
+          <Image src={images.logoLight.src} alt="" width={images.logoLight.width} height={images.logoLight.height} className="h-16 w-auto" priority />
+          <p className="mt-4 font-heading text-2xl font-semibold tracking-[-0.02em]">{site.name}</p>
+          <p className="mt-1 text-sm text-white/60">Online banking</p>
+        </div>
+        <div className="mx-auto w-full max-w-md standalone:max-lg:max-w-none standalone:max-lg:flex-1 standalone:max-lg:rounded-t-[2rem] standalone:max-lg:bg-surface standalone:max-lg:px-6 standalone:max-lg:pt-9 standalone:max-lg:pb-[calc(env(safe-area-inset-bottom)+2rem)]">
+          <h1 id="login-title" className="text-[clamp(2.2rem,4vw,3rem)] leading-[1.05] font-semibold tracking-[-0.035em] standalone:max-lg:text-[1.75rem]">
             Log in to online banking
           </h1>
-          <p className="mt-4 text-lg text-slate">Use the user ID and password from your account welcome pack.</p>
+          <p className="mt-4 text-lg text-slate standalone:max-lg:mt-2 standalone:max-lg:text-base">Use the user ID and password from your account welcome pack.</p>
           {signedOut && (
             <p role="status" className="mt-6 flex items-center gap-2.5 rounded-xl bg-positive/10 px-4 py-3 text-sm text-ink">
               <CircleCheck className="size-4 shrink-0 text-positive" aria-hidden />
@@ -41,7 +52,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             </p>
           )}
 
-          <div className="mt-10">
+          <div className="mt-10 standalone:max-lg:mt-8">
             <LoginForm />
           </div>
 

@@ -104,7 +104,7 @@ export function Panel({
 }: React.HTMLAttributes<HTMLElement> & { as?: "section" | "div" | "article" }) {
   return (
     <Tag
-      className={cn("rounded-[1.75rem] bg-panel p-5 ring-1 ring-line/70 sm:p-6 dark:ring-white/[0.06]", className)}
+      className={cn("min-w-0 rounded-[1.5rem] bg-panel p-4.5 ring-1 ring-line/70 sm:rounded-[1.75rem] sm:p-6 dark:ring-white/[0.06]", className)}
       {...props}
     >
       {children}

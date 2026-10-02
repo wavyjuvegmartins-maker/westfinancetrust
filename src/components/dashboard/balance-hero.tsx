@@ -1,8 +1,8 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, useSyncExternalStore } from "react";
 import { motion } from "motion/react";
-import { ArrowDownRight, ArrowLeftRight, ArrowUpRight, Receipt, Send, Snowflake } from "lucide-react";
+import { ArrowDownRight, ArrowLeftRight, ArrowUpRight, Layers, Lock, PiggyBank, Receipt, Send, Snowflake, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { useMoveMoney } from "@/components/dashboard/move-money";
 import { balanceSeries, totalBalance, type Point } from "@/components/dashboard/selectors";
@@ -30,8 +30,14 @@ export function BalanceHero() {
   const shown = scrub !== null ? points[scrub] : null;
   const value = shown ? shown.value : current;
   const change = value - points[0].value;
-  const pct = points[0].value ? (change / points[0].value) * 100 : 0;
+  // No percentage when the period started from (almost) nothing, e.g. a newly opened account.
+  const pct = Math.abs(points[0].value) >= 1 ? (change / points[0].value) * 100 : null;
   const up = change >= 0;
+
+  const pickPeriod = (p: (typeof periods)[number]) => {
+    setPeriod(p);
+    setScrub(null);
+  };
 
   const card = state.card;
   const actions: { label: string; icon: typeof Send; run: () => void; active?: boolean }[] = [
@@ -54,14 +60,18 @@ export function BalanceHero() {
   }
 
   return (
-    <section aria-labelledby="balance-title" className="relative overflow-hidden rounded-[1.75rem] bg-deep text-white ring-1 ring-white/5">
+    // On phones the stage runs edge to edge, straight on from the navy top bar.
+    <section
+      aria-labelledby="balance-title"
+      className="relative overflow-hidden rounded-[1.75rem] bg-deep text-white ring-1 ring-white/5 max-lg:-mx-4 max-lg:-mt-4 max-lg:rounded-t-none max-lg:rounded-b-[2rem] max-lg:ring-0 sm:max-lg:-mx-6"
+    >
       {/* the brand orbit, as quiet atmosphere */}
-      <svg aria-hidden viewBox="0 0 600 300" className="pointer-events-none absolute -top-24 -right-40 w-[42rem] opacity-[0.12]">
+      <svg aria-hidden viewBox="0 0 600 300" className="pointer-events-none absolute -top-24 -right-40 hidden w-[42rem] opacity-[0.12] lg:block">
         <ellipse cx="300" cy="150" rx="280" ry="110" fill="none" stroke="#e8952b" strokeWidth="18" strokeDasharray="1150 400" strokeLinecap="round" transform="rotate(-16 300 150)" />
       </svg>
 
-      <div className="relative p-5 sm:p-7">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="relative px-5 pt-3 pb-6 sm:p-7">
+        <div className="hidden flex-wrap items-center justify-between gap-3 lg:flex">
           <div role="tablist" aria-label="Show balance for" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
             {filters.map((f) => (
               <button
@@ -87,7 +97,7 @@ export function BalanceHero() {
           </div>
         </div>
 
-        <div className="mt-6">
+        <div className="lg:mt-6">
           <p id="balance-title" className="text-sm text-white/60">
             {shown
               ? `Balance on ${shown.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`
@@ -95,46 +105,30 @@ export function BalanceHero() {
                 ? "Total balance"
                 : `${state.accounts.find((a) => a.id === filter)?.name ?? "Account"} balance`}
           </p>
-          <p className="mt-1 font-heading text-[clamp(2.6rem,6vw,3.8rem)] leading-none font-semibold tracking-[-0.04em]">
+          <p className="mt-1.5 font-heading text-[clamp(2.75rem,12vw,3.8rem)] leading-none font-semibold tracking-[-0.045em]">
             <AnimatedMoney value={value} duration={shown ? 0.18 : 0.7} />
           </p>
-          <p className="mt-3 flex flex-wrap items-center gap-x-2 text-sm">
+          <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="flex flex-wrap items-center gap-x-2 text-sm">
             <span className={cn("inline-flex items-center gap-1 font-semibold", up ? "text-emerald-300" : "text-rose-300")}>
               {up ? <ArrowUpRight className="size-4" aria-hidden /> : <ArrowDownRight className="size-4" aria-hidden />}
-              <Money value={change} sign /> ({up ? "+" : ""}
-              {pct.toFixed(1)}%)
+              <Money value={change} sign />
+              {pct !== null && ` (${up ? "+" : ""}${pct.toFixed(1)}%)`}
             </span>
             <span className="text-white/55">{shown ? "since the start of the period" : period.label}</span>
           </p>
+          <PeriodSwitch period={period} onChange={pickPeriod} className="lg:hidden" />
+          </div>
         </div>
 
         <BalanceChart points={points} scrub={scrub} onScrub={setScrub} animationKey={`${filter}-${period.id}`} label={`${filters.find((f) => f.id === filter)?.label ?? "All accounts"} balance, ${period.label}`} />
 
-        <div className="mt-2 flex items-center justify-between gap-4">
-          <div className="flex gap-1 rounded-full bg-white/[0.06] p-1" role="tablist" aria-label="Time period">
-            {periods.map((p) => (
-              <button
-                key={p.id}
-                role="tab"
-                type="button"
-                aria-selected={period.id === p.id}
-                onClick={() => {
-                  setPeriod(p);
-                  setScrub(null);
-                }}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
-                  period.id === p.id ? "bg-amber text-deep" : "text-white/65 hover:text-white",
-                )}
-              >
-                {p.id}
-              </button>
-            ))}
-          </div>
-          <p className="hidden text-xs text-white/45 sm:block">Drag across the chart to see any day</p>
+        <div className="mt-2 hidden items-center justify-between gap-4 lg:flex">
+          <PeriodSwitch period={period} onChange={pickPeriod} />
+          <p className="text-xs text-white/45">Drag across the chart to see any day</p>
         </div>
 
-        <div className="mt-6 grid grid-cols-4 gap-2 border-t border-white/10 pt-5 sm:max-w-lg">
+        <div className="mt-5 grid grid-cols-4 gap-2 border-t border-white/10 pt-5 sm:max-w-lg">
           {actions.map((a) => (
             <motion.button
               key={a.label}
@@ -156,8 +150,101 @@ export function BalanceHero() {
             </motion.button>
           ))}
         </div>
+
+        <AccountTiles
+          filter={filter}
+          onSelect={(id) => {
+            setFilter(id);
+            setScrub(null);
+          }}
+        />
       </div>
     </section>
+  );
+}
+
+type Period = (typeof periods)[number];
+
+function PeriodSwitch({ period, onChange, className }: { period: Period; onChange: (p: Period) => void; className?: string }) {
+  return (
+    <div className={cn("flex shrink-0 gap-1 rounded-full bg-white/[0.06] p-1", className)} role="tablist" aria-label="Time period">
+      {periods.map((p) => (
+        <button
+          key={p.id}
+          role="tab"
+          type="button"
+          aria-selected={period.id === p.id}
+          onClick={() => onChange(p)}
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+            period.id === p.id ? "bg-amber text-deep" : "text-white/65 hover:text-white",
+          )}
+        >
+          {p.id}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------- account tiles (phones) */
+
+const accountIcon = { checking: Wallet, savings: PiggyBank, certificate: Lock };
+
+/** Swipeable row of accounts under the quick actions; picking one switches the balance above. */
+function AccountTiles({ filter, onSelect }: { filter: string; onSelect: (id: string) => void }) {
+  const { state } = useBank();
+  const tiles = [
+    { id: "all", label: "All accounts", detail: `${state.accounts.length} accounts`, balance: totalBalance(state, "all"), icon: Layers },
+    ...state.accounts.map((a) => ({
+      id: a.id,
+      label: a.short,
+      detail: a.apy ? `${a.apy.toFixed(2)}% APY` : `••${a.mask}`,
+      balance: a.balance,
+      icon: accountIcon[a.type],
+    })),
+  ];
+  return (
+    <div role="tablist" aria-label="Show balance for" className="-mx-5 mt-6 flex snap-x snap-mandatory scroll-px-5 gap-2.5 overflow-x-auto px-5 pb-1 [scrollbar-width:none] lg:hidden">
+      {tiles.map((t) => {
+        const selected = filter === t.id;
+        return (
+          <button
+            key={t.id}
+            role="tab"
+            type="button"
+            aria-selected={selected}
+            onClick={() => onSelect(t.id)}
+            className={cn(
+              "flex w-[9.75rem] shrink-0 snap-start flex-col rounded-[1.25rem] p-3.5 text-left ring-1 transition-colors",
+              selected ? "bg-white text-deep ring-white" : "bg-white/[0.06] text-white ring-white/10 hover:bg-white/10",
+            )}
+          >
+            <span className="flex items-center justify-between">
+              <span className={cn("flex size-8 items-center justify-center rounded-xl", selected ? "bg-amber text-deep" : "bg-white/10 text-amber")}>
+                <t.icon className="size-4" aria-hidden />
+              </span>
+              <span className={cn("text-[0.7rem] font-medium", selected ? "text-deep/55" : "text-white/50")}>{t.detail}</span>
+            </span>
+            <span className={cn("mt-4 truncate text-xs font-medium", selected ? "text-deep/70" : "text-white/65")}>{t.label}</span>
+            <Money value={t.balance} className="mt-0.5 font-heading text-[1.05rem] font-semibold tracking-[-0.02em]" />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const desktopQuery = "(min-width: 1024px)";
+function useIsDesktop() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const mq = window.matchMedia(desktopQuery);
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(desktopQuery).matches,
+    () => true,
   );
 }
 
@@ -178,7 +265,6 @@ function smoothPath(xy: [number, number][]) {
   return d;
 }
 
-const H = 190;
 const PAD_T = 18;
 const PAD_B = 10;
 
@@ -197,6 +283,8 @@ function BalanceChart({
 }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const gradientId = useId();
+  // A slim chart on phones keeps the quick actions and accounts on the first screen.
+  const H = useIsDesktop() ? 190 : 104;
   const n = points.length;
   const values = points.map((p) => p.value);
   const min = Math.min(...values);
@@ -221,13 +309,14 @@ function BalanceChart({
   const fmtDay = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   return (
-    <div className="relative mt-5 -mx-1">
+    <div className="relative mt-4 -mx-1 lg:mt-5">
       <div
         ref={ref}
         role="img"
         tabIndex={0}
         aria-label={`${label}. Use the left and right arrow keys to read each day.`}
-        className="relative h-[190px] cursor-crosshair touch-pan-y rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-amber/70"
+        style={{ height: H }}
+        className="relative cursor-crosshair touch-pan-y rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-amber/70"
         onPointerMove={(e) => onScrub(indexAt(e.clientX, e.currentTarget))}
         onPointerDown={(e) => onScrub(indexAt(e.clientX, e.currentTarget))}
         onPointerLeave={() => onScrub(null)}
@@ -307,7 +396,7 @@ function BalanceChart({
           </span>
         )}
       </div>
-      <div className="mt-1 flex justify-between px-1 text-[0.7rem] text-white/40" aria-hidden>
+      <div className="mt-1 hidden justify-between px-1 text-[0.7rem] text-white/40 lg:flex" aria-hidden>
         <span>{fmtDay(points[0].date)}</span>
         <span>{fmtDay(points[Math.floor((n - 1) / 2)].date)}</span>
         <span>Today</span>

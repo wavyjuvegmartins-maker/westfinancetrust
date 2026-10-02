@@ -47,11 +47,11 @@ export function SettingsView() {
   return (
     <div className="space-y-5">
       <div className="pt-2">
-        <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-ink">Settings</h1>
+        <h1 className="font-heading text-[1.75rem] font-semibold tracking-[-0.03em] text-ink sm:text-3xl">Settings</h1>
         <p className="mt-1 text-slate">Your details, security and how online banking looks and behaves.</p>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5">
         <Panel aria-labelledby="profile-title">
           <PanelHeader id="profile-title" title="Your details" />
           <div className="flex items-center gap-4">

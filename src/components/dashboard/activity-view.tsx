@@ -69,17 +69,18 @@ export function ActivityView() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4 pt-2">
-        <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-ink">Activity</h1>
-          <p className="mt-1 text-slate">Every payment across your accounts, newest first.</p>
+      <div className="flex items-end justify-between gap-4 lg:pt-2">
+        <div className="min-w-0">
+          <h1 className="font-heading text-[1.75rem] font-semibold tracking-[-0.03em] text-ink sm:text-3xl">Activity</h1>
+          <p className="mt-1 text-sm text-slate sm:text-base">Every payment across your accounts, newest first.</p>
         </div>
-        <Button type="button" variant="outline-ink" size="md" onClick={exportCsv}>
-          <Download aria-hidden /> Export CSV
+        <Button type="button" variant="outline-ink" size="md" onClick={exportCsv} className="max-sm:size-10 max-sm:px-0" aria-label="Export CSV">
+          <Download aria-hidden /> <span className="max-sm:sr-only">Export CSV</span>
         </Button>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-3">
+      {/* Swipeable on phones, three across from sm up. */}
+      <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0">
         <StatTile label="Money in this month" value={thisMonth.moneyIn} previous={lastMonth.moneyIn} upIsGood />
         <StatTile label="Money out this month" value={thisMonth.moneyOut} previous={lastMonth.moneyOut} upIsGood={false} />
         <StatTile label="Net this month" value={thisMonth.moneyIn - thisMonth.moneyOut} previous={lastMonth.moneyIn - lastMonth.moneyOut} upIsGood signed />
@@ -245,7 +246,7 @@ function StatTile({
   const diff = value - previous;
   const good = diff === 0 ? true : diff > 0 === upIsGood;
   return (
-    <Panel as="div">
+    <Panel as="div" className="w-[15.5rem] shrink-0 snap-start sm:w-auto">
       <p className="text-sm text-slate">{label}</p>
       <p className="mt-2 font-heading text-[1.9rem] leading-none font-semibold tracking-[-0.03em] text-ink">
         <Money value={value} sign={signed} smallCents />

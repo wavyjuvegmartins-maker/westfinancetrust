@@ -23,11 +23,11 @@ export function MoveView() {
   return (
     <div className="space-y-5">
       <div className="pt-2">
-        <h1 className="font-heading text-3xl font-semibold tracking-[-0.03em] text-ink">Move money</h1>
+        <h1 className="font-heading text-[1.75rem] font-semibold tracking-[-0.03em] text-ink sm:text-3xl">Move money</h1>
         <p className="mt-1 text-slate">Transfer between your accounts, send to people you know, or pay a bill.</p>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
         <Panel className="lg:col-span-7" aria-label="New payment">
           <div className="mx-auto max-w-lg py-2">
             <MoveMoneyFlow key={flow.key} initialMode={flow.mode} preset={flow.to ? { to: flow.to } : undefined} />

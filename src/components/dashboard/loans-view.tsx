@@ -60,7 +60,7 @@ export function LoansView() {
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-12">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
         <Panel className="lg:col-span-7" aria-labelledby="estimate-title">
           <PanelHeader id="estimate-title" title="Estimate your payments">
             At our starting rates. Your actual rate will depend on your circumstances.

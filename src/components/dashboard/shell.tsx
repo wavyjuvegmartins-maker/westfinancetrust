@@ -89,7 +89,7 @@ export function DashboardShell({ user, bank, children }: { user: UserProfile; ba
 function PageFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   return (
-    <main id="main" className="mx-auto w-full max-w-[1320px] px-4 pt-2 pb-32 sm:px-6 lg:px-8 lg:pb-14">
+    <main id="main" className="mx-auto w-full max-w-[1320px] px-4 pt-4 pb-[calc(env(safe-area-inset-bottom)+7.5rem)] sm:px-6 lg:px-8 lg:pt-2 lg:pb-14">
       <motion.div
         key={pathname}
         initial={{ opacity: 0, y: 12 }}
@@ -214,11 +214,11 @@ function Topbar() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-transparent bg-canvas/80 backdrop-blur-xl">
+    // Phones get navy app chrome (it runs on into the balance stage on Home); from lg up it's the light desktop bar.
+    <header className="sticky top-0 z-30 bg-deep pt-[env(safe-area-inset-top)] text-white lg:border-b lg:border-transparent lg:bg-canvas/80 lg:pt-0 lg:text-ink lg:backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1320px] items-center justify-between gap-3 px-4 sm:px-6 lg:h-20 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
-          <Image src={images.logo.src} alt="" width={images.logo.width} height={images.logo.height} className="h-8 w-auto lg:hidden dark:hidden" priority />
-          <Image src={images.logoLight.src} alt="" width={images.logoLight.width} height={images.logoLight.height} className="hidden h-8 w-auto dark:block dark:lg:hidden" priority />
+          <Image src={images.logoLight.src} alt="" width={images.logoLight.width} height={images.logoLight.height} className="h-8 w-auto lg:hidden" priority />
           <div className="min-w-0">
             <p className="truncate font-heading text-lg leading-tight font-semibold tracking-[-0.02em] lg:text-2xl">
               <span className="sm:hidden">Hi, {user.firstName}</span>
@@ -226,7 +226,7 @@ function Topbar() {
                 {greeting()}, {user.firstName}
               </span>
             </p>
-            <p className="hidden text-sm text-slate sm:block">
+            <p className="hidden text-sm text-white/60 sm:block lg:text-slate">
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </p>
           </div>
@@ -236,13 +236,13 @@ function Topbar() {
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="hidden h-10 items-center gap-2 rounded-full bg-panel pr-2 pl-3.5 text-sm text-slate ring-1 ring-line transition-colors hover:text-ink md:flex"
+            className="hidden h-10 items-center gap-2 rounded-full bg-panel pr-2 pl-3.5 text-sm text-slate ring-1 ring-line transition-colors hover:text-ink lg:flex"
           >
             <Search className="size-4" aria-hidden />
             Search
             <kbd className="ml-3 rounded-md bg-canvas px-1.5 py-0.5 font-sans text-[0.7rem] font-semibold text-slate">Ctrl K</kbd>
           </button>
-          <IconButton label="Search" onClick={() => setSearchOpen(true)} className="md:hidden">
+          <IconButton label="Search" onClick={() => setSearchOpen(true)} className="lg:hidden">
             <Search className="size-[1.1rem]" />
           </IconButton>
           <IconButton
@@ -252,7 +252,7 @@ function Topbar() {
           >
             {state.hideBalances ? <EyeOff className="size-[1.1rem]" /> : <Eye className="size-[1.1rem]" />}
           </IconButton>
-          <ThemeToggle className="hidden bg-panel sm:flex" />
+          <ThemeToggle className="hidden bg-panel lg:flex" />
           <Notifications />
           <AccountMenu />
         </div>
@@ -261,6 +261,9 @@ function Topbar() {
     </header>
   );
 }
+
+const chromeButton =
+  "relative flex size-10 items-center justify-center rounded-full bg-white/[0.08] text-white ring-1 ring-white/10 transition-colors hover:bg-white/15 lg:bg-panel lg:text-ink lg:ring-line lg:hover:bg-paper";
 
 function IconButton({
   label,
@@ -282,7 +285,7 @@ function IconButton({
       aria-label={label}
       aria-pressed={pressed}
       className={cn(
-        "relative flex size-10 items-center justify-center rounded-full bg-panel text-ink ring-1 ring-line transition-colors hover:bg-paper",
+        chromeButton,
         className,
       )}
     >
@@ -303,7 +306,7 @@ function Notifications() {
           <button
             type="button"
             aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
-            className="relative flex size-10 items-center justify-center rounded-full bg-panel text-ink ring-1 ring-line transition-colors hover:bg-paper"
+            className={chromeButton}
           />
         }
       >
@@ -314,7 +317,7 @@ function Notifications() {
             initial={{ scale: 0.4 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", bounce: 0.5 }}
-            className="absolute -top-0.5 -right-0.5 flex min-w-[1.15rem] items-center justify-center rounded-full bg-amber px-1 text-[0.65rem] leading-[1.15rem] font-bold text-deep ring-2 ring-canvas"
+            className="absolute -top-0.5 -right-0.5 flex min-w-[1.15rem] items-center justify-center rounded-full bg-amber px-1 text-[0.65rem] leading-[1.15rem] font-bold text-deep ring-2 ring-deep lg:ring-canvas"
           >
             {unread}
           </motion.span>
@@ -523,11 +526,12 @@ function MobileTabBar() {
 
   return (
     <>
+      {/* Floating tab bar: four destinations with "move money" in the middle. */}
       <nav
         aria-label="Online banking"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-panel/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
+        className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-40 mx-auto max-w-md rounded-[1.75rem] bg-panel/85 p-1.5 shadow-[0_18px_40px_-16px_rgb(15_27_51/0.45)] ring-1 ring-line/80 backdrop-blur-xl lg:hidden dark:ring-white/10"
       >
-        <ul className="mx-auto grid max-w-md grid-cols-5 items-end px-2">
+        <ul className="grid grid-cols-5 items-center">
           {tabs.map((item) =>
             item ? (
               <li key={item.href}>
@@ -537,12 +541,12 @@ function MobileTabBar() {
               <li key="move" className="flex justify-center">
                 <motion.button
                   type="button"
-                  whileTap={{ scale: 0.92 }}
+                  whileTap={{ scale: 0.9 }}
                   onClick={() => move.open("transfer")}
-                  className="-mt-6 mb-2 flex size-14 items-center justify-center rounded-full bg-amber text-deep shadow-[0_12px_28px_-10px_rgba(232,149,43,0.8)] ring-4 ring-canvas"
+                  className="flex size-13 items-center justify-center rounded-[1.15rem] bg-amber text-deep shadow-[0_10px_24px_-10px_rgba(232,149,43,0.9)] transition-colors hover:bg-amber-strong"
                   aria-label="Move money"
                 >
-                  <Plus className="size-6" strokeWidth={2.5} aria-hidden />
+                  <ArrowLeftRight className="size-[1.35rem]" strokeWidth={2.25} aria-hidden />
                 </motion.button>
               </li>
             ),
@@ -551,13 +555,14 @@ function MobileTabBar() {
             <button
               type="button"
               onClick={() => setMoreOpen(true)}
+              aria-haspopup="dialog"
               className={cn(
-                "flex w-full flex-col items-center gap-1 py-2.5 text-[0.7rem] font-semibold",
+                tabClass,
                 ["/dashboard/loans", "/dashboard/settings", "/dashboard/move"].some((h) => isActive(pathname, h)) ? "text-ink" : "text-slate",
               )}
             >
-              <Ellipsis className="size-5" aria-hidden />
-              More
+              <Ellipsis className="relative size-5" aria-hidden />
+              <span className="relative">More</span>
             </button>
           </li>
         </ul>
@@ -601,17 +606,20 @@ function MobileTabBar() {
   );
 }
 
+const tabClass = "relative flex h-13 w-full flex-col items-center justify-center gap-0.5 rounded-[1.15rem] text-[0.68rem] font-semibold transition-colors";
+
 function TabLink({ href, label, icon: Icon, active }: { href: string; label: string; icon: LucideIcon; active: boolean }) {
   return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={cn("relative flex flex-col items-center gap-1 py-2.5 text-[0.7rem] font-semibold transition-colors", active ? "text-ink" : "text-slate")}
-    >
-      {active && <motion.span layoutId="tab-dot" className="absolute top-0 h-[3px] w-8 rounded-full bg-amber" />}
-      <Icon className="size-5" aria-hidden />
-      {label}
+    <Link href={href} aria-current={active ? "page" : undefined} className={cn(tabClass, active ? "text-ink" : "text-slate hover:text-ink")}>
+      {active && (
+        <motion.span
+          layoutId="tab-active"
+          className="absolute inset-0 rounded-[1.15rem] bg-canvas dark:bg-white/[0.07]"
+          transition={{ type: "spring", bounce: 0.2, duration: 0.45 }}
+        />
+      )}
+      <Icon className={cn("relative size-5", active && "text-amber-ink")} aria-hidden />
+      <span className="relative">{label}</span>
     </Link>
   );
 }
-

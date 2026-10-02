@@ -8,18 +8,19 @@ export const metadata: Metadata = { title: "Home" };
 
 export default function DashboardHome() {
   return (
-    <div className="grid gap-5 lg:grid-cols-12">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
       <div className="lg:col-span-8">
         <BalanceHero />
       </div>
-      <CardWidget className="lg:col-span-4" />
+      {/* On phones, recent activity comes straight after the balance. */}
+      <CardWidget className="max-lg:order-2 lg:col-span-4" />
 
-      <RecentActivity className="lg:col-span-7" />
-      <SpendingBreakdown className="lg:col-span-5" />
+      <RecentActivity className="max-lg:order-1 lg:col-span-7" />
+      <SpendingBreakdown className="max-lg:order-3 lg:col-span-5" />
 
-      <Goals className="lg:col-span-5" />
-      <UpcomingBills className="lg:col-span-4" />
-      <div className="grid content-start gap-5 lg:col-span-3">
+      <Goals className="max-lg:order-3 lg:col-span-5" />
+      <UpcomingBills className="max-lg:order-3 lg:col-span-4" />
+      <div className="grid min-w-0 content-start gap-4 max-lg:order-3 lg:col-span-3 lg:gap-5">
         <LiveInterest />
         <LoansTeaser />
       </div>
