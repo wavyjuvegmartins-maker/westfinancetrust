@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CreditCard } from "lucide-react";
+import { ArrowLeft, CreditCard, MessageCircle } from "lucide-react";
 import { AddPayeeButton, CashButtons, LoginTools, OpenAccountButton, RemovePayeeButton } from "@/components/admin/customer-tools";
 import { AdminPanel, PersonBadge, Pill, SignedMoney, StatusPill, money, shortDate, txnLabel } from "@/components/admin/ui";
 import { getSessionUser } from "@/lib/auth/session";
@@ -37,6 +37,12 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
               Login ID <span className="font-semibold text-ink">{c.user_id}</span>, since{" "}
               {new Date(c.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
             </p>
+            <Link
+              href={`/admin/inbox/${c.id}`}
+              className="mt-2 inline-flex h-9 items-center gap-1.5 rounded-full bg-panel px-3.5 text-sm font-semibold text-ink ring-1 ring-line transition-colors hover:bg-paper"
+            >
+              <MessageCircle className="size-4" aria-hidden /> Message {c.first_name}
+            </Link>
           </div>
         </div>
         <p className="max-sm:w-full max-sm:rounded-2xl max-sm:bg-deep max-sm:px-4 max-sm:py-3.5 max-sm:text-white sm:text-right">

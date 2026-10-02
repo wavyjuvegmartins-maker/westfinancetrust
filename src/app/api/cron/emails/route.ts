@@ -1,8 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 import { deliverPendingEmails } from "@/lib/email/outbox";
+import { deliverPendingPushes } from "@/lib/push/send";
 
 /**
- * Sends notification emails the app didn't send itself: those made by the
+ * Sends notification emails and pushes the app didn't send itself: those made by the
  * scheduled database jobs (interest, autopay). Called every few minutes by
  * pg_cron (supabase/setup/04_email_job.sql) with `Authorization: Bearer CRON_SECRET`.
  */
@@ -13,5 +14,6 @@ export async function POST(request: Request) {
   if (!secret || given.length !== expected.length || !timingSafeEqual(given, expected)) {
     return Response.json({ error: "Not allowed" }, { status: 401 });
   }
-  return Response.json(await deliverPendingEmails());
+  const [emails, pushes] = await Promise.all([deliverPendingEmails(), deliverPendingPushes()]);
+  return Response.json({ emails, pushes });
 }

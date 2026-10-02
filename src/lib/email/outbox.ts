@@ -2,6 +2,7 @@ import "server-only";
 import { after } from "next/server";
 import { emailConfigured, sendEmail } from "@/lib/email/send";
 import { noticeEmail, type NoticeTopic } from "@/lib/email/templates";
+import { deliverPendingPushes } from "@/lib/push/send";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 // Notifications double as an email outbox. Whatever creates one (a server
@@ -28,7 +29,7 @@ type Settings = { profile_id: string; activity_emails: boolean; low_balance_aler
 const topicOf = (n: Pending): NoticeTopic => n.topic ?? (n.kind === "security" ? "security" : "activity");
 
 function wanted(topic: NoticeTopic, s: Settings | undefined) {
-  if (topic === "security") return true; // can't be turned off
+  if (topic === "security" || topic === "message") return true; // can't be turned off
   if (topic === "activity") return s?.activity_emails ?? true;
   if (topic === "low_balance") return s?.low_balance_alerts ?? true;
   return s?.login_alerts ?? true;
@@ -109,13 +110,14 @@ export async function deliverPendingEmails(): Promise<{ sent: number; skipped: n
   return tally;
 }
 
-/** Sends pending notification emails once the current response has gone. Call after anything that notifies. */
+/**
+ * Sends pending notification emails and push notifications once the current
+ * response has gone. Call after anything that notifies.
+ */
 export function deliverEmailsSoon() {
   after(async () => {
-    try {
-      await deliverPendingEmails();
-    } catch (error) {
-      console.error("Notification emails failed", error);
-    }
+    const [emails, pushes] = await Promise.allSettled([deliverPendingEmails(), deliverPendingPushes()]);
+    if (emails.status === "rejected") console.error("Notification emails failed", emails.reason);
+    if (pushes.status === "rejected") console.error("Push notifications failed", pushes.reason);
   });
 }

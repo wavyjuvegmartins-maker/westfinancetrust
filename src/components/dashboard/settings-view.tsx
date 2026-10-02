@@ -7,6 +7,7 @@ import { KeyRound, Loader2, LogOut, MonitorSmartphone, Monitor, Moon, Sun } from
 import { toast } from "sonner";
 import { signOut } from "@/app/actions";
 import { InstallAppRow } from "@/components/app/install";
+import { PushToggle } from "@/components/app/push-toggle";
 import type { Prefs } from "@/components/dashboard/data";
 import { useBank } from "@/components/dashboard/store";
 import { Avatar, Panel, PanelHeader } from "@/components/dashboard/ui";
@@ -118,6 +119,7 @@ export function SettingsView() {
           <PanelHeader id="alerts-title" title="Notifications">
             Shown here and emailed to {user.email}. Security emails, like a password change or a new payee, are always sent.
           </PanelHeader>
+          <PushToggle className="mb-1 rounded-2xl bg-canvas px-4 py-3.5" />
           <ul className="divide-y divide-line">
             {alerts.map((a) => (
               <li key={a.key} className="flex items-center justify-between gap-4 py-3.5">

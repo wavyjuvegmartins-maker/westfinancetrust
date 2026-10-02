@@ -7,10 +7,11 @@
 // - Build files (/_next/static, content-hashed) and brand images are cached so
 //   the app opens quickly.
 // - Nothing that isn't a same-origin GET is touched (logins, forms, Supabase).
+// - Push notifications from the server (src/lib/push/send.ts) are shown here.
 //
 // Bump VERSION when this file's caching rules change.
 
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = `wft-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/app/icon-192.png", "/images/logo-light.webp"];
@@ -88,3 +89,44 @@ async function staleWhileRevalidate(event, request) {
   }
   return refresh;
 }
+
+// ------------------------------------------------------- push notifications
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  const title = data.title || "West Finance Trust";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || "",
+      icon: "/app/icon-192.png",
+      badge: "/app/badge-96.png",
+      tag: data.tag,
+      renotify: Boolean(data.tag),
+      data: { url: data.url || "/dashboard" },
+    }),
+  );
+});
+
+// Tapping a notification focuses the open app (or opens it) on the right page.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || "/dashboard", self.location.origin);
+  if (target.origin !== self.location.origin) return;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      if (open) {
+        await open.focus();
+        if ("navigate" in open) return open.navigate(target.href);
+        return;
+      }
+      return self.clients.openWindow(target.href);
+    })(),
+  );
+});

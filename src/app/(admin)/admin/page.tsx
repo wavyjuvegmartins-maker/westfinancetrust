@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, UserPlus } from "lucide-react";
 import { JobsPanel } from "@/components/admin/jobs-panel";
+import { PushToggle } from "@/components/app/push-toggle";
 import { AdminPanel, SignedMoney, money, shortDate } from "@/components/admin/ui";
 import { getSessionUser } from "@/lib/auth/session";
 import { getOverview, lastInterestRun } from "@/lib/admin/queries";
@@ -76,6 +77,9 @@ export default async function AdminOverview() {
         </AdminPanel>
 
         <div className="grid min-w-0 content-start gap-4 lg:gap-5">
+          <AdminPanel className="max-lg:hidden">
+            <PushToggle />
+          </AdminPanel>
           <JobsPanel lastInterest={lastInterest} isAdmin={user?.role === "admin"} />
           <AdminPanel>
             <h2 className="font-heading text-lg font-semibold text-ink">How to register a customer</h2>

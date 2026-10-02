@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import {
   ArrowLeftRight,
@@ -17,6 +17,7 @@ import {
   House,
   Landmark,
   LogOut,
+  MessageCircle,
   Plus,
   ReceiptText,
   Search,
@@ -55,19 +56,38 @@ type AppNavItem = { href: string; label: string; icon: LucideIcon; soon?: boolea
 export const appNav: AppNavItem[] = [
   { href: "/dashboard", label: "Home", icon: House },
   { href: "/dashboard/activity", label: "Activity", icon: ReceiptText },
+  { href: "/dashboard/messages", label: "Messages", icon: MessageCircle },
   { href: "/dashboard/move", label: "Move money", icon: ArrowLeftRight },
   { href: "/dashboard/cards", label: "Cards", icon: CreditCard },
   { href: "/dashboard/loans", label: "Loans", icon: HandCoins, soon: true },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
+const navItem = (href: string) => appNav.find((n) => n.href === href)!;
+// On phones these live in the "More" sheet; the tab bar has the rest.
+const moreHrefs = ["/dashboard/move", "/dashboard/cards", "/dashboard/loans", "/dashboard/settings"];
+
+// Staff replies the customer hasn't opened, for the badges on "Messages".
+const UnreadContext = createContext(0);
+
 const isActive = (pathname: string, href: string) =>
   href === "/dashboard" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 
 /* ------------------------------------------------------------------ shell */
 
-export function DashboardShell({ user, bank, children }: { user: UserProfile; bank: BankState; children: React.ReactNode }) {
+export function DashboardShell({
+  user,
+  bank,
+  unreadMessages,
+  children,
+}: {
+  user: UserProfile;
+  bank: BankState;
+  unreadMessages: number;
+  children: React.ReactNode;
+}) {
   return (
+    <UnreadContext.Provider value={unreadMessages}>
     <UserProvider user={user}>
     <BankProvider bank={bank} profileId={user.id}>
       <MoveMoneyProvider>
@@ -83,6 +103,7 @@ export function DashboardShell({ user, bank, children }: { user: UserProfile; ba
       </MoveMoneyProvider>
     </BankProvider>
     </UserProvider>
+    </UnreadContext.Provider>
   );
 }
 
@@ -106,6 +127,7 @@ function PageFrame({ children }: { children: React.ReactNode }) {
 
 function Sidebar() {
   const pathname = usePathname();
+  const unread = useContext(UnreadContext);
   const user = useUser();
   const { state } = useBank();
   return (
@@ -144,6 +166,12 @@ function Sidebar() {
                   <span className="relative">{item.label}</span>
                   {item.soon && (
                     <span className="relative ml-auto rounded-full bg-amber/15 px-2 py-0.5 text-[0.66rem] font-semibold text-amber">Soon</span>
+                  )}
+                  {item.href === "/dashboard/messages" && unread > 0 && (
+                    <span className="relative ml-auto rounded-full bg-amber px-2 py-0.5 text-[0.7rem] font-bold text-deep">
+                      {unread}
+                      <span className="sr-only"> unread</span>
+                    </span>
                   )}
                 </Link>
               </li>
@@ -522,7 +550,8 @@ function MobileTabBar() {
   const pathname = usePathname();
   const move = useMoveMoney();
   const [moreOpen, setMoreOpen] = useState(false);
-  const tabs = [appNav[0], appNav[1], null, appNav[3]] as const;
+  const unread = useContext(UnreadContext);
+  const tabs = [navItem("/dashboard"), navItem("/dashboard/activity"), null, navItem("/dashboard/messages")] as const;
 
   return (
     <>
@@ -535,7 +564,13 @@ function MobileTabBar() {
           {tabs.map((item) =>
             item ? (
               <li key={item.href}>
-                <TabLink href={item.href} label={item.label} icon={item.icon} active={isActive(pathname, item.href)} />
+                <TabLink
+                  href={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  active={isActive(pathname, item.href)}
+                  badge={item.href === "/dashboard/messages" ? unread : 0}
+                />
               </li>
             ) : (
               <li key="move" className="flex justify-center">
@@ -558,7 +593,7 @@ function MobileTabBar() {
               aria-haspopup="dialog"
               className={cn(
                 tabClass,
-                ["/dashboard/loans", "/dashboard/settings", "/dashboard/move"].some((h) => isActive(pathname, h)) ? "text-ink" : "text-slate",
+                moreHrefs.some((h) => isActive(pathname, h)) ? "text-ink" : "text-slate",
               )}
             >
               <Ellipsis className="relative size-5" aria-hidden />
@@ -575,7 +610,7 @@ function MobileTabBar() {
             <SheetDescription className="sr-only">Other pages and settings</SheetDescription>
           </SheetHeader>
           <ul className="grid gap-1 px-4">
-            {[appNav[2], appNav[4], appNav[5]].map((item) => (
+            {moreHrefs.map(navItem).map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
@@ -608,7 +643,7 @@ function MobileTabBar() {
 
 const tabClass = "relative flex h-13 w-full flex-col items-center justify-center gap-0.5 rounded-[1.15rem] text-[0.68rem] font-semibold transition-colors";
 
-function TabLink({ href, label, icon: Icon, active }: { href: string; label: string; icon: LucideIcon; active: boolean }) {
+function TabLink({ href, label, icon: Icon, active, badge = 0 }: { href: string; label: string; icon: LucideIcon; active: boolean; badge?: number }) {
   return (
     <Link href={href} aria-current={active ? "page" : undefined} className={cn(tabClass, active ? "text-ink" : "text-slate hover:text-ink")}>
       {active && (
@@ -620,6 +655,12 @@ function TabLink({ href, label, icon: Icon, active }: { href: string; label: str
       )}
       <Icon className={cn("relative size-5", active && "text-amber-ink")} aria-hidden />
       <span className="relative">{label}</span>
+      {badge > 0 && (
+        <span className="absolute top-1 right-[calc(50%-1.25rem)] flex min-w-[1.1rem] items-center justify-center rounded-full bg-amber px-1 text-[0.62rem] leading-[1.1rem] font-bold text-deep">
+          {badge}
+          <span className="sr-only"> unread</span>
+        </span>
+      )}
     </Link>
   );
 }

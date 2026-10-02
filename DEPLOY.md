@@ -24,6 +24,9 @@ Vercel → Project → **Settings → Environment Variables**. Copy the values f
 | `STAFF_EMAIL` | e.g. `support@westfinacetrust.com` | Where contact-form messages go |
 | `CRON_SECRET` | a long random string | Mark it *Sensitive*; must match the Supabase Vault secret (step 5) |
 | `NEXT_PUBLIC_SITE_URL` | `https://westfinacetrust.com` | Used for links in emails. No trailing slash |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | from `.env.local` | Push notifications. Keep the same pair forever |
+| `VAPID_PRIVATE_KEY` | from `.env.local` | **Server only.** Mark it *Sensitive* |
+| `VAPID_SUBJECT` | `mailto:support@westfinacetrust.com` | |
 
 `NEXT_PUBLIC_*` values are baked into the build, so **redeploy** after changing one.
 

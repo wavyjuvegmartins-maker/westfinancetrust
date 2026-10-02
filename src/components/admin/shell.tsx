@@ -3,15 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { motion } from "motion/react";
-import { ClipboardList, Ellipsis, Hourglass, Inbox, LayoutDashboard, Loader2, LogOut, Search, UserPlus, Users, type LucideIcon } from "lucide-react";
+import { ClipboardList, Ellipsis, Globe, Hourglass, Inbox, LayoutDashboard, Loader2, LogOut, Search, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { signOut } from "@/app/actions";
+import { PushToggle } from "@/components/app/push-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import { findAccount } from "@/lib/admin/actions";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { fullName, type UserProfile } from "@/lib/auth/types";
 import { images } from "@/lib/images";
 import { cn } from "@/lib/utils";
@@ -20,12 +22,27 @@ const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] 
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/customers", label: "Customers", icon: Users, exact: true },
   { href: "/admin/customers/new", label: "Register customer", icon: UserPlus },
-  { href: "/admin/messages", label: "Messages", icon: Inbox },
+  { href: "/admin/inbox", label: "Inbox", icon: Inbox },
+  { href: "/admin/messages", label: "Website messages", icon: Globe },
   { href: "/admin/waitlist", label: "Loan waitlist", icon: Hourglass },
   { href: "/admin/audit", label: "Audit log", icon: ClipboardList },
 ];
 
-export function AdminShell({ user, openMessages, children }: { user: UserProfile; openMessages: number; children: React.ReactNode }) {
+export function AdminShell({
+  user,
+  openMessages,
+  unreadInbox,
+  children,
+}: {
+  user: UserProfile;
+  /** Website contact-form messages not yet handled. */
+  openMessages: number;
+  /** Customer messages no one on staff has read yet. */
+  unreadInbox: number;
+  children: React.ReactNode;
+}) {
+  useInboxLive();
+  const badge = (href: string) => (href === "/admin/inbox" ? unreadInbox : href === "/admin/messages" ? openMessages : 0);
   const pathname = usePathname();
   const active = (item: (typeof nav)[number]) =>
     item.exact ? pathname === item.href || (item.href === "/admin/customers" && /^\/admin\/customers\/(?!new)/.test(pathname)) : pathname.startsWith(item.href);
@@ -61,8 +78,8 @@ export function AdminShell({ user, openMessages, children }: { user: UserProfile
                     )}
                     <item.icon className="relative size-[1.15rem]" aria-hidden />
                     <span className="relative">{item.label}</span>
-                    {item.href === "/admin/messages" && openMessages > 0 && (
-                      <span className="relative ml-auto rounded-full bg-amber px-2 py-0.5 text-[0.7rem] font-bold text-deep">{openMessages}</span>
+                    {badge(item.href) > 0 && (
+                      <span className="relative ml-auto rounded-full bg-amber px-2 py-0.5 text-[0.7rem] font-bold text-deep">{badge(item.href)}</span>
                     )}
                   </Link>
                 </li>
@@ -112,10 +129,42 @@ export function AdminShell({ user, openMessages, children }: { user: UserProfile
           {children}
         </main>
       </div>
-      <AdminTabBar active={active} openMessages={openMessages} user={user} />
+      <AdminTabBar active={active} badge={badge} user={user} />
       <Toaster position="bottom-right" mobileOffset={{ bottom: 96 }} richColors closeButton />
     </div>
   );
+}
+
+/* ------------------------------------------------------------ live inbox */
+
+/** A customer message anywhere refreshes the badges, with a toast unless that conversation is open. */
+function useInboxLive() {
+  const router = useRouter();
+  const pathname = usePathname();
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | undefined;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled || !data.session) return;
+      await supabase.realtime.setAuth(data.session.access_token);
+      channel = supabase
+        .channel("staff-inbox")
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: "from_staff=eq.false" }, (payload: { new: Record<string, unknown> }) => {
+          const customerId = String(payload.new.customer_id);
+          if (!pathname.endsWith(customerId)) {
+            toast("New customer message", { action: { label: "Open", onClick: () => router.push(`/admin/inbox/${customerId}`) } });
+          }
+          router.refresh();
+        })
+        .subscribe();
+    })();
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [router, pathname]);
 }
 
 /* --------------------------------------------------------- phone tab bar */
@@ -124,9 +173,9 @@ type NavItem = (typeof nav)[number];
 
 const tabClass = "relative flex h-13 w-full flex-col items-center justify-center gap-0.5 rounded-[1.15rem] text-[0.68rem] font-semibold transition-colors";
 
-function AdminTabBar({ active, openMessages, user }: { active: (item: NavItem) => boolean; openMessages: number; user: UserProfile }) {
+function AdminTabBar({ active, badge, user }: { active: (item: NavItem) => boolean; badge: (href: string) => number; user: UserProfile }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const [overview, customers, register, messages, ...rest] = nav;
+  const [overview, customers, register, inbox, ...rest] = nav;
 
   const tab = (item: NavItem, badge = 0) => {
     const on = active(item);
@@ -169,7 +218,7 @@ function AdminTabBar({ active, openMessages, user }: { active: (item: NavItem) =
               <UserPlus className="size-[1.35rem]" strokeWidth={2.25} aria-hidden />
             </Link>
           </li>
-          <li>{tab(messages, openMessages)}</li>
+          <li>{tab(inbox, badge(inbox.href))}</li>
           <li>
             <button
               type="button"
@@ -199,9 +248,15 @@ function AdminTabBar({ active, openMessages, user }: { active: (item: NavItem) =
                 <Link href={item.href} onClick={() => setMoreOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-3 font-medium text-ink hover:bg-canvas">
                   <item.icon className="size-5 text-slate" aria-hidden />
                   {item.label}
+                  {badge(item.href) > 0 && (
+                    <span className="ml-auto rounded-full bg-amber px-2 py-0.5 text-[0.7rem] font-bold text-deep">{badge(item.href)}</span>
+                  )}
                 </Link>
               </li>
             ))}
+            <li className="px-3 py-2">
+              <PushToggle />
+            </li>
             <li className="flex items-center justify-between px-3 py-2">
               <span className="font-medium text-ink">Appearance</span>
               <ThemeToggle />

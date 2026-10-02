@@ -4,6 +4,7 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { getSessionUser } from "@/lib/auth/session";
 import { homeFor } from "@/lib/auth/types";
 import { loadBank } from "@/lib/banking/load";
+import { unreadForCustomer } from "@/lib/messages/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -18,9 +19,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!user) redirect("/login");
   if (user.mustChangePassword || user.role !== "customer") redirect(homeFor(user));
 
-  const bank = await loadBank(await createSupabaseServerClient(), user);
+  const [bank, unreadMessages] = await Promise.all([loadBank(await createSupabaseServerClient(), user), unreadForCustomer(user.id)]);
   return (
-    <DashboardShell user={user} bank={bank}>
+    <DashboardShell user={user} bank={bank} unreadMessages={unreadMessages}>
       {children}
     </DashboardShell>
   );

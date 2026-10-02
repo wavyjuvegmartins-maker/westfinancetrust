@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/shell";
 import { getSessionUser } from "@/lib/auth/session";
 import { homeFor } from "@/lib/auth/types";
+import { unreadForStaff } from "@/lib/messages/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -17,10 +18,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (user.mustChangePassword || user.role === "customer") redirect(homeFor(user));
 
   const supabase = await createSupabaseServerClient();
-  const { count } = await supabase.from("contact_messages").select("id", { count: "exact", head: true }).is("handled_at", null);
+  const [{ count }, unreadInbox] = await Promise.all([
+    supabase.from("contact_messages").select("id", { count: "exact", head: true }).is("handled_at", null),
+    unreadForStaff(),
+  ]);
 
   return (
-    <AdminShell user={user} openMessages={count ?? 0}>
+    <AdminShell user={user} openMessages={count ?? 0} unreadInbox={unreadInbox}>
       {children}
     </AdminShell>
   );

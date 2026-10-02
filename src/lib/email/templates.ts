@@ -35,18 +35,19 @@ export function credentialsEmail({ firstName, userId, password, kind }: { firstN
 
 /* --------------------------------------------------------- notifications */
 
-export type NoticeTopic = "security" | "activity" | "low_balance" | "login";
+export type NoticeTopic = "security" | "activity" | "low_balance" | "login" | "message";
 
 const why: Record<NoticeTopic, string> = {
   security: "We always email you about security changes to your account.",
   activity: "You get these because account activity emails are on. Turn them off in online banking under Settings.",
   low_balance: "You get these because low balance alerts are on. Turn them off in online banking under Settings.",
   login: "You get these because new sign-in alerts are on. Turn them off in online banking under Settings.",
+  message: "We always tell you when we've sent you a message. For your security, messages can only be read in online banking.",
 };
 
 /** Any in-app notification, as an email. The title and body come from the notification itself. */
 export function noticeEmail({ firstName, title, body, topic }: { firstName: string; title: string; body: string; topic: NoticeTopic }): Rendered {
-  const url = siteUrl("/dashboard");
+  const url = siteUrl(topic === "message" ? "/dashboard/messages" : "/dashboard");
   const warn = topic === "security" || topic === "login";
   const unexpected = `Not you? Call us straight away on ${site.phone}.`;
   return {
