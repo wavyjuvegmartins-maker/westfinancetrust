@@ -1,4 +1,5 @@
 import "server-only";
+import { site } from "@/lib/site";
 
 export type Email = {
   to: string;
@@ -41,7 +42,8 @@ export async function sendEmail(email: Email): Promise<SendResult> {
         subject: email.subject,
         text: email.text,
         html: email.html,
-        ...(email.replyTo ? { reply_to: email.replyTo } : {}),
+        // Replies reach a real inbox: mail filters trust senders that can be answered.
+        reply_to: email.replyTo ?? (process.env.STAFF_EMAIL || site.email),
       }),
     });
     if (!res.ok) return { sent: false, reason: `The email service refused it (${res.status}).` };
