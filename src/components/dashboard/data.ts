@@ -44,6 +44,8 @@ export type Txn = {
   method: "card" | "transfer" | "deposit" | "cash" | "bill" | "interest" | "p2p" | "other";
   note?: string;
   reference: string;
+  payer?: { name: string; type: "person" | "organization" }; // who paid a deposit in, set by the bank
+  paidOn?: string; // YYYY-MM-DD, when the payer sent it
 };
 
 export type Goal = { id: string; name: string; target: number; saved: number; accountId: string };

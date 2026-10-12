@@ -37,6 +37,8 @@ export type AdminTxn = {
   balance_after: number | null;
   description: string;
   reference: string;
+  payer_name: string | null;
+  paid_on: string | null;
   created_at: string;
   account: { account_number: string; name: string } | null;
 };
@@ -79,7 +81,7 @@ export async function getCustomer(id: string) {
     ids.length
       ? supabase
           .from("transactions")
-          .select("id, type, status, amount, balance_after, description, reference, created_at, account:accounts!transactions_account_id_fkey(account_number, name)")
+          .select("id, type, status, amount, balance_after, description, reference, payer_name, paid_on, created_at, account:accounts!transactions_account_id_fkey(account_number, name)")
           .in("account_id", ids)
           .order("created_at", { ascending: false })
           .limit(40)
@@ -120,7 +122,7 @@ export async function getOverview() {
     supabase.from("transactions").select("type, amount").in("type", ["deposit", "withdrawal"]).gte("created_at", today.toISOString()),
     supabase
       .from("transactions")
-      .select("id, type, status, amount, balance_after, description, reference, created_at, account:accounts!transactions_account_id_fkey(account_number, name)")
+      .select("id, type, status, amount, balance_after, description, reference, payer_name, paid_on, created_at, account:accounts!transactions_account_id_fkey(account_number, name)")
       .in("type", ["deposit", "withdrawal"])
       .order("created_at", { ascending: false })
       .limit(8),

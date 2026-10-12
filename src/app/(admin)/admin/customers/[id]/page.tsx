@@ -5,9 +5,13 @@ import { ArrowLeft, CreditCard, MessageCircle } from "lucide-react";
 import { AddPayeeButton, CashButtons, LoginTools, OpenAccountButton, RemovePayeeButton } from "@/components/admin/customer-tools";
 import { AdminPanel, PersonBadge, Pill, SignedMoney, StatusPill, money, shortDate, txnLabel } from "@/components/admin/ui";
 import { getSessionUser } from "@/lib/auth/session";
-import { getCustomer } from "@/lib/admin/queries";
+import { getCustomer, type AdminTxn } from "@/lib/admin/queries";
 
 export const metadata: Metadata = { title: "Customer" };
+
+const payerLine = (t: AdminTxn) =>
+  `From ${t.payer_name}` +
+  (t.paid_on ? `, sent ${new Date(`${t.paid_on}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : "");
 
 export default async function CustomerPage({ params }: PageProps<"/admin/customers/[id]">) {
   const { id } = await params;
@@ -107,6 +111,7 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
                   <li key={t.id} className="flex items-start justify-between gap-3 px-1 py-3">
                     <span className="min-w-0">
                       <span className="block truncate font-medium text-ink">{t.description}</span>
+                      {t.payer_name && <span className="block truncate text-xs text-slate">{payerLine(t)}</span>}
                       <span className="block text-xs text-slate">
                         {txnLabel[t.type] ?? t.type}, {t.account?.name} ••{t.account?.account_number.slice(-4)}
                       </span>
@@ -137,6 +142,7 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
                         <td className="py-2.5 pr-4 whitespace-nowrap text-slate">{shortDate(t.created_at)}</td>
                         <td className="py-2.5 pr-4">
                           <span className="font-medium text-ink">{t.description}</span>
+                          {t.payer_name && <span className="block text-xs text-slate">{payerLine(t)}</span>}
                           <span className="block text-xs text-slate">
                             {t.account?.name} {t.account?.account_number}, ref {t.reference}
                           </span>

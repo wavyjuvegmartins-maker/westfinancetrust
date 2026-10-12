@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowDownToLine, ArrowUpFromLine, Ban, KeyRound, Loader2, Mail, Plus, RotateCcw, Trash2, UserPlus } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Ban, Building2, KeyRound, Loader2, Mail, Plus, RotateCcw, Trash2, User, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { CredentialsCard } from "@/components/admin/credentials-card";
 import { inputClass } from "@/components/forms/fields";
@@ -27,6 +27,12 @@ import { cashMovementSchema, payeeSchema, type CashMovementValues, type PayeeInp
 import { cn } from "@/lib/utils";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const longDate = (ymd: string) => new Date(`${ymd}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+const payerTypes = [
+  { id: "person", label: "Person", icon: User },
+  { id: "organization", label: "Organization", icon: Building2 },
+] as const;
 
 /* ------------------------------------------------------ deposit / withdraw */
 
@@ -63,15 +69,21 @@ function CashForm({
 }) {
   const router = useRouter();
   const [step, setStep] = useState<"form" | "confirm">("form");
+  const today = localDate(new Date());
   const {
     register,
     handleSubmit,
     getValues,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<CashMovementValues>({
     resolver: zodResolver(cashMovementSchema),
-    defaultValues: { accountId: account.id, description: kind === "deposit" ? "Cash deposit at branch" : "Cash withdrawal at branch" },
+    defaultValues:
+      kind === "deposit"
+        ? { accountId: account.id, description: "Cash deposit at branch", payerName: "", paidOn: today }
+        : { accountId: account.id, description: "Cash withdrawal at branch" },
   });
+  const payerName = useWatch({ control, name: "payerName" })?.trim();
 
   const onSubmit = handleSubmit(async (values) => {
     if (step === "form") {
@@ -120,11 +132,55 @@ function CashForm({
             <Input id="cash-description" className={inputClass} aria-invalid={!!errors.description} {...register("description")} />
             <FieldError errors={[errors.description]} />
           </Field>
+          {kind === "deposit" && (
+            <>
+              <Field data-invalid={!!errors.payerName}>
+                <FieldLabel htmlFor="cash-payer" className="text-ink">Paid in by (optional)</FieldLabel>
+                <Input id="cash-payer" className={inputClass} placeholder="Person or organization" autoComplete="off" aria-invalid={!!errors.payerName} {...register("payerName")} />
+                <FieldDescription>The customer sees this in their transaction history.</FieldDescription>
+                <FieldError errors={[errors.payerName]} />
+              </Field>
+              {payerName && (
+                <Field data-invalid={!!errors.payerType}>
+                  <FieldLabel className="text-ink">The payer is</FieldLabel>
+                  <div role="radiogroup" className="grid grid-cols-2 gap-2">
+                    {payerTypes.map((t) => (
+                      <label
+                        key={t.id}
+                        className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-input text-sm font-medium text-ink has-checked:border-ink has-checked:bg-canvas has-focus-visible:ring-3 has-focus-visible:ring-ring/40"
+                      >
+                        <input type="radio" value={t.id} className="sr-only" {...register("payerType")} />
+                        <t.icon className="size-4" aria-hidden /> {t.label}
+                      </label>
+                    ))}
+                  </div>
+                  <FieldError errors={[errors.payerType]} />
+                </Field>
+              )}
+              <Field data-invalid={!!errors.paidOn}>
+                <FieldLabel htmlFor="cash-paid-on" className="text-ink">Date sent</FieldLabel>
+                <Input id="cash-paid-on" type="date" max={today} className={inputClass} aria-invalid={!!errors.paidOn} {...register("paidOn")} />
+                <FieldDescription>When the payer sent the money. Leave it as today if it’s cash handed in now.</FieldDescription>
+                <FieldError errors={[errors.paidOn]} />
+              </Field>
+            </>
+          )}
         </div>
       ) : (
         <div className="mt-5 rounded-2xl bg-canvas p-4 text-sm">
           <p className="font-heading text-3xl font-semibold text-ink">{money(getValues("amount"))}</p>
           <p className="mt-1 text-slate">{getValues("description")}</p>
+          {kind === "deposit" && getValues("payerName")?.trim() && (
+            <p className="mt-1 text-slate">
+              From <span className="font-semibold text-ink">{getValues("payerName")?.trim()}</span> (
+              {getValues("payerType") === "organization" ? "organization" : "person"})
+            </p>
+          )}
+          {kind === "deposit" && getValues("paidOn") && (
+            <p className="mt-1 text-slate">
+              Sent on <span className="font-semibold text-ink">{longDate(getValues("paidOn")!)}</span>
+            </p>
+          )}
           <p className="mt-3 text-slate">
             New balance{" "}
             <span className="font-semibold text-ink">

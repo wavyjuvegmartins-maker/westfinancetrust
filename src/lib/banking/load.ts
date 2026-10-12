@@ -36,6 +36,9 @@ type TxnRow = {
   category: string | null;
   note: string | null;
   reference: string;
+  payer_name: string | null;
+  payer_type: "person" | "organization" | null;
+  paid_on: string | null;
   created_at: string;
 };
 
@@ -156,6 +159,8 @@ export async function loadBank(supabase: SupabaseClient, user: UserProfile): Pro
         method: methodFor[t.type],
         note: t.note ?? undefined,
         reference: t.reference,
+        payer: t.payer_name ? { name: t.payer_name, type: t.payer_type ?? "person" } : undefined,
+        paidOn: t.paid_on ?? undefined,
       })),
     card: c
       ? {

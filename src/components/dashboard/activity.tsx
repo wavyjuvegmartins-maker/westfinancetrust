@@ -37,7 +37,7 @@ export function TxnRow({ txn, onSelect }: { txn: Txn; onSelect: (t: Txn) => void
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[0.95rem] font-semibold text-ink">{txn.merchant}</span>
         <span className="flex items-center gap-2 text-xs text-slate">
-          <span className="truncate">{txn.note ?? categoryMeta[txn.category].label}</span>
+          <span className="truncate">{txn.note ?? (txn.payer ? `From ${txn.payer.name}` : categoryMeta[txn.category].label)}</span>
           {txn.status === "pending" && (
             <Pill className="bg-amber-soft text-amber-ink">
               <CircleDashed className="size-3 animate-spin [animation-duration:3s]" aria-hidden /> Pending
@@ -157,6 +157,14 @@ function TxnDetailSheet({ id, onClose }: { id: string | null; onClose: () => voi
               </ol>
 
               <dl className="divide-y divide-line text-sm">
+                {txn.payer && <DetailRow term="From" detail={txn.payer.name} />}
+                {txn.payer && <DetailRow term="Payer" detail={txn.payer.type === "organization" ? "Organization" : "Person"} />}
+                {txn.paidOn && (
+                  <DetailRow
+                    term="Date sent"
+                    detail={new Date(`${txn.paidOn}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                  />
+                )}
                 <DetailRow term="Account" detail={`${account.name} ••${account.mask}`} />
                 <DetailRow term="Method" detail={txn.method === "card" && state.card ? `${methodLabel.card} ••${state.card.last4}` : methodLabel[txn.method]} />
                 <DetailRow term="Reference" detail={txn.reference} />

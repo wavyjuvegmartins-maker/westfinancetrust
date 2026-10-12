@@ -99,7 +99,21 @@ export const cashMovementSchema = z.object({
     .positive("Enter an amount above $0.")
     .max(10_000_000, "That amount is too large to post online."),
   description: z.string().trim().min(3, "Describe the transaction, for example Cash deposit at branch.").max(80),
-});
+  // Deposits only: who paid the money in, and when they sent it. All optional.
+  payerName: z
+    .string()
+    .trim()
+    .max(80, "Keep the payer’s name under 80 characters.")
+    .refine((s) => s === "" || s.length >= 2, "Enter the payer’s full name.")
+    .optional(),
+  payerType: z.enum(["person", "organization"]).optional(),
+  paidOn: z
+    .string()
+    .refine((s) => s === "" || /^\d{4}-\d{2}-\d{2}$/.test(s), "Pick a date.")
+    // A day of slack covers staff in time zones ahead of the server.
+    .refine((s) => s === "" || new Date(`${s}T00:00:00Z`).getTime() <= Date.now() + 86_400_000, "The date sent can’t be in the future.")
+    .optional(),
+}).refine((v) => !v.payerName || !!v.payerType, { path: ["payerType"], message: "Is the payer a person or an organization?" });
 export type CashMovementValues = z.infer<typeof cashMovementSchema>;
 
 /** US routing numbers carry a 3-7-1 weighted checksum, which catches most typos. */

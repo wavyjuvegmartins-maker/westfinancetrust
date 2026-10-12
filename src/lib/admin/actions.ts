@@ -234,11 +234,18 @@ export async function postCash(kind: "deposit" | "withdrawal", values: CashMovem
   const parsed = cashMovementSchema.safeParse(values);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the amount and try again." };
 
-  const { error } = await ctx.supabase.rpc(kind === "deposit" ? "admin_deposit" : "admin_withdrawal", {
-    p_account: parsed.data.accountId,
-    p_amount: parsed.data.amount,
-    p_description: parsed.data.description,
-  });
+  const { accountId, amount, description, payerName, payerType, paidOn } = parsed.data;
+  const { error } =
+    kind === "deposit"
+      ? await ctx.supabase.rpc("admin_deposit", {
+          p_account: accountId,
+          p_amount: amount,
+          p_description: description,
+          p_payer_name: payerName || null,
+          p_payer_type: payerName ? payerType : null,
+          p_paid_on: paidOn || null,
+        })
+      : await ctx.supabase.rpc("admin_withdrawal", { p_account: accountId, p_amount: amount, p_description: description });
   if (error) return { ok: false, message: friendly(error, `The ${kind} didn’t go through. Try again.`) };
   deliverEmailsSoon();
   revalidatePath("/admin", "layout");

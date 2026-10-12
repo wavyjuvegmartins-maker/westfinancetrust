@@ -34,7 +34,7 @@ export function ActivityView() {
     const q = query.trim().toLowerCase();
     return state.txns.filter(
       (t) =>
-        (!q || t.merchant.toLowerCase().includes(q) || (t.note ?? "").toLowerCase().includes(q)) &&
+        (!q || t.merchant.toLowerCase().includes(q) || (t.note ?? "").toLowerCase().includes(q) || (t.payer?.name ?? "").toLowerCase().includes(q)) &&
         (direction === "all" || (direction === "in" ? t.amount > 0 : t.amount < 0)) &&
         (account === "all" || t.account === account) &&
         (category === "all" || t.category === category),
@@ -45,7 +45,7 @@ export function ActivityView() {
   const filtersOn = query || direction !== "all" || account !== "all" || category !== "all";
 
   const exportCsv = () => {
-    const rows = [["Date", "Description", "Category", "Account", "Amount", "Status", "Note"]];
+    const rows = [["Date", "Description", "Category", "Account", "Amount", "Status", "Note", "From", "Date sent"]];
     for (const t of filtered) {
       rows.push([
         new Date(t.date).toISOString().slice(0, 10),
@@ -55,6 +55,8 @@ export function ActivityView() {
         t.amount.toFixed(2),
         t.status,
         t.note ?? "",
+        t.payer?.name ?? "",
+        t.paidOn ?? "",
       ]);
     }
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
