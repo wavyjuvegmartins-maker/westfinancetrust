@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { motion } from "motion/react";
-import { ClipboardList, Ellipsis, Globe, Hourglass, Inbox, LayoutDashboard, Loader2, LogOut, Search, UserPlus, Users, type LucideIcon } from "lucide-react";
+import { Bitcoin, ClipboardList, Ellipsis, Globe, Hourglass, Inbox, LayoutDashboard, Loader2, LogOut, Search, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { signOut } from "@/app/actions";
 import { PushToggle } from "@/components/app/push-toggle";
@@ -23,6 +23,7 @@ const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] 
   { href: "/admin/customers", label: "Customers", icon: Users, exact: true },
   { href: "/admin/customers/new", label: "Register customer", icon: UserPlus },
   { href: "/admin/inbox", label: "Inbox", icon: Inbox },
+  { href: "/admin/crypto", label: "Crypto approvals", icon: Bitcoin },
   { href: "/admin/messages", label: "Website messages", icon: Globe },
   { href: "/admin/waitlist", label: "Loan waitlist", icon: Hourglass },
   { href: "/admin/audit", label: "Audit log", icon: ClipboardList },
@@ -32,6 +33,7 @@ export function AdminShell({
   user,
   openMessages,
   unreadInbox,
+  pendingCrypto,
   children,
 }: {
   user: UserProfile;
@@ -39,10 +41,13 @@ export function AdminShell({
   openMessages: number;
   /** Customer messages no one on staff has read yet. */
   unreadInbox: number;
+  /** Customer crypto deposits and withdrawals waiting for an admin. */
+  pendingCrypto: number;
   children: React.ReactNode;
 }) {
   useInboxLive();
-  const badge = (href: string) => (href === "/admin/inbox" ? unreadInbox : href === "/admin/messages" ? openMessages : 0);
+  const badge = (href: string) =>
+    href === "/admin/inbox" ? unreadInbox : href === "/admin/messages" ? openMessages : href === "/admin/crypto" ? pendingCrypto : 0;
   const pathname = usePathname();
   const active = (item: (typeof nav)[number]) =>
     item.exact ? pathname === item.href || (item.href === "/admin/customers" && /^\/admin\/customers\/(?!new)/.test(pathname)) : pathname.startsWith(item.href);

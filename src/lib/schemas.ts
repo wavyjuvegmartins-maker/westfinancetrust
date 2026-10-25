@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assetMeta, cryptoAddressProblem, cryptoAssets, cryptoNetworks, fitsDecimals, type CryptoAsset } from "@/lib/crypto";
 
 export const loginSchema = z.object({
   userId: z
@@ -197,3 +198,61 @@ export const contactSchema = z.object({
     .max(2000, "Keep your message under 2,000 characters."),
 });
 export type ContactValues = z.infer<typeof contactSchema>;
+
+/* ------------------------------------------------------------------ crypto */
+
+const cryptoAmount = z
+  .number({ error: "Enter an amount." })
+  .positive("Enter an amount above zero.")
+  .max(100_000_000, "That amount is too large.");
+
+const decimalsMessage = (asset: CryptoAsset) => `${assetMeta[asset].symbol} amounts have up to ${assetMeta[asset].decimals} decimal places.`;
+
+/** Staff setting the address a customer deposits to, or the one their withdrawals go to. */
+export const cryptoAddressSchema = z
+  .object({
+    asset: z.enum(cryptoAssets),
+    side: z.enum(["deposit", "withdrawal"]),
+    network: z.enum(cryptoNetworks, { error: "Choose the network." }),
+    address: z.string().trim().min(1, "Enter the address."),
+    confirmAddress: z.string().trim().optional(),
+    tag: z.string().trim().optional(),
+    // Withdrawal addresses only: who asked, and that staff checked it was them.
+    addedVia: z.enum(["phone", "branch"]).optional(),
+    verified: z.boolean().optional(),
+  })
+  .superRefine((v, ctx) => {
+    const problem = cryptoAddressProblem(v.asset, v.network, v.address, v.tag || null);
+    if (problem) {
+      const path = /network/.test(problem) && /can’t be sent/.test(problem) ? "network" : /tag/.test(problem) ? "tag" : "address";
+      ctx.addIssue({ code: "custom", path: [path], message: problem });
+    }
+    if (v.side === "withdrawal") {
+      if (v.confirmAddress !== v.address) {
+        ctx.addIssue({ code: "custom", path: ["confirmAddress"], message: "The addresses don’t match. Read it back to the customer." });
+      }
+      if (!v.addedVia) ctx.addIssue({ code: "custom", path: ["addedVia"], message: "Choose how the customer asked." });
+      if (v.verified !== true) ctx.addIssue({ code: "custom", path: ["verified"], message: "Confirm you’ve checked who you’re speaking to." });
+    }
+  });
+export type CryptoAddressValues = z.infer<typeof cryptoAddressSchema>;
+
+/** Staff crediting or debiting a wallet straight away. */
+export const cryptoPostSchema = z
+  .object({
+    asset: z.enum(cryptoAssets),
+    amount: cryptoAmount,
+    description: z.string().trim().min(3, "Describe it, for example BTC deposit received.").max(80),
+  })
+  .refine((v) => fitsDecimals(v.amount, v.asset), { path: ["amount"], error: (iss) => decimalsMessage((iss.input as { asset: CryptoAsset }).asset) });
+export type CryptoPostValues = z.infer<typeof cryptoPostSchema>;
+
+/** A customer saying they've sent a deposit, or asking to withdraw. */
+export const cryptoRequestSchema = z
+  .object({
+    asset: z.enum(cryptoAssets),
+    amount: cryptoAmount,
+    note: z.string().trim().max(60, "Keep the note under 60 characters.").optional(),
+  })
+  .refine((v) => fitsDecimals(v.amount, v.asset), { path: ["amount"], error: (iss) => decimalsMessage((iss.input as { asset: CryptoAsset }).asset) });
+export type CryptoRequestValues = z.infer<typeof cryptoRequestSchema>;

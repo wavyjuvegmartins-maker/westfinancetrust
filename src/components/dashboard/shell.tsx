@@ -8,6 +8,7 @@ import { motion } from "motion/react";
 import {
   ArrowLeftRight,
   Bell,
+  Bitcoin,
   CircleAlert,
   CreditCard,
   Ellipsis,
@@ -58,6 +59,7 @@ export const appNav: AppNavItem[] = [
   { href: "/dashboard/activity", label: "Activity", icon: ReceiptText },
   { href: "/dashboard/messages", label: "Messages", icon: MessageCircle },
   { href: "/dashboard/move", label: "Move money", icon: ArrowLeftRight },
+  { href: "/dashboard/crypto", label: "Crypto", icon: Bitcoin },
   { href: "/dashboard/cards", label: "Cards", icon: CreditCard },
   { href: "/dashboard/loans", label: "Loans", icon: HandCoins, soon: true },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
@@ -65,7 +67,7 @@ export const appNav: AppNavItem[] = [
 
 const navItem = (href: string) => appNav.find((n) => n.href === href)!;
 // On phones these live in the "More" sheet; the tab bar has the rest.
-const moreHrefs = ["/dashboard/move", "/dashboard/cards", "/dashboard/loans", "/dashboard/settings"];
+const moreHrefs = ["/dashboard/move", "/dashboard/crypto", "/dashboard/cards", "/dashboard/loans", "/dashboard/settings"];
 
 // Staff replies the customer hasn't opened, for the badges on "Messages".
 const UnreadContext = createContext(0);

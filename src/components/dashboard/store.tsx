@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { ActionResult } from "@/app/actions";
 import type { BankState, CardState, Prefs, SpendCategory } from "@/components/dashboard/data";
-import type { BillValues, GoalValues } from "@/lib/schemas";
+import type { BillValues, CryptoRequestValues, GoalValues } from "@/lib/schemas";
 import {
   addToGoal,
   deleteBill,
@@ -15,6 +15,8 @@ import {
   payBill,
   removeMyPayee,
   replaceCard,
+  requestCryptoDeposit,
+  requestCryptoWithdrawal,
   saveBill,
   saveGoal,
   sendMoney,
@@ -43,7 +45,9 @@ export type Action =
   | { type: "deleteGoal"; id: string }
   | { type: "saveBill"; bill: BillValues & { id?: string } }
   | { type: "deleteBill"; id: string }
-  | { type: "removePayee"; id: string };
+  | { type: "removePayee"; id: string }
+  | { type: "cryptoDeposit"; request: CryptoRequestValues }
+  | { type: "cryptoWithdraw"; request: CryptoRequestValues };
 
 function perform(action: Action, state: BankState): Promise<ActionResult> {
   switch (action.type) {
@@ -79,6 +83,10 @@ function perform(action: Action, state: BankState): Promise<ActionResult> {
       return deleteBill(action.id);
     case "removePayee":
       return removeMyPayee(action.id);
+    case "cryptoDeposit":
+      return requestCryptoDeposit(action.request);
+    case "cryptoWithdraw":
+      return requestCryptoWithdrawal(action.request);
   }
 }
 

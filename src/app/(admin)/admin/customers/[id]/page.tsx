@@ -2,10 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CreditCard, MessageCircle } from "lucide-react";
+import { CryptoTxnList } from "@/components/admin/crypto-list";
+import { CryptoAddressRow, CryptoPostButtons } from "@/components/admin/crypto-tools";
 import { AddPayeeButton, CashButtons, LoginTools, OpenAccountButton, RemovePayeeButton } from "@/components/admin/customer-tools";
+import { CryptoCoin } from "@/components/crypto-coin";
 import { AdminPanel, PersonBadge, Pill, SignedMoney, StatusPill, money, shortDate, txnLabel } from "@/components/admin/ui";
 import { getSessionUser } from "@/lib/auth/session";
 import { getCustomer, type AdminTxn } from "@/lib/admin/queries";
+import { assetMeta, formatCrypto } from "@/lib/crypto";
 
 export const metadata: Metadata = { title: "Customer" };
 
@@ -17,7 +21,7 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
   const { id } = await params;
   const [user, data] = await Promise.all([getSessionUser(), getCustomer(id)]);
   if (!data) notFound();
-  const { customer: c, txns, cards, payees } = data;
+  const { customer: c, txns, cards, payees, crypto } = data;
   const isAdmin = user?.role === "admin";
   const total = c.accounts.reduce((s, a) => s + a.balance, 0);
 
@@ -60,6 +64,7 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
         {[
           ["#accounts-title", "Accounts"],
           ["#payees-title", "Payees"],
+          ["#crypto-title", "Crypto"],
           ["#ledger-title", "Activity"],
           ["#login-title", "Login"],
           ["#cards-title", "Cards"],
@@ -99,6 +104,43 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
               </ul>
             ) : (
               <p className="rounded-2xl bg-canvas px-4 py-8 text-center text-sm text-slate">No accounts yet.</p>
+            )}
+          </AdminPanel>
+
+          <AdminPanel aria-labelledby="crypto-title" className="max-lg:order-2">
+            <h2 id="crypto-title" className="mb-1 scroll-mt-32 font-heading text-lg font-semibold text-ink">Crypto</h2>
+            <p className="mb-4 text-sm text-slate">
+              {isAdmin
+                ? `Set where ${c.first_name} sends each coin and where we send it back, then approve their requests.`
+                : "Only an admin can set addresses, post or approve crypto."}
+            </p>
+            <ul className="grid gap-3">
+              {crypto.wallets.map((w) => (
+                <li key={w.asset} className="rounded-2xl bg-canvas px-4 py-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="flex items-center gap-3">
+                      <CryptoCoin asset={w.asset} />
+                      <span>
+                        <span className="block font-semibold text-ink">{assetMeta[w.asset].name}</span>
+                        <span className="figures font-heading text-lg font-semibold text-ink">{formatCrypto(w.balance, w.asset)}</span>
+                      </span>
+                    </span>
+                    {isAdmin && <CryptoPostButtons profileId={c.id} wallet={w} />}
+                  </div>
+                  {isAdmin && (
+                    <div className="mt-3 divide-y divide-line border-t border-line">
+                      <CryptoAddressRow profileId={c.id} customerName={c.first_name} wallet={w} side="deposit" />
+                      <CryptoAddressRow profileId={c.id} customerName={c.first_name} wallet={w} side="withdrawal" />
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {crypto.txns.length > 0 && (
+              <>
+                <h3 className="mt-5 font-heading text-base font-semibold text-ink">Crypto activity</h3>
+                <CryptoTxnList txns={crypto.txns} canReview={isAdmin} />
+              </>
             )}
           </AdminPanel>
 

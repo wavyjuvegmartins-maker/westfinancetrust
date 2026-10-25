@@ -12,6 +12,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import type { CryptoTxn, CryptoWallet } from "@/lib/crypto";
 
 /* ------------------------------------------------------------------ types */
 
@@ -102,6 +103,7 @@ export type BankState = {
   hideBalances: boolean;
   loanWaitlist: string[];
   monthlyBudget: number;
+  crypto: { wallets: CryptoWallet[]; txns: CryptoTxn[] };
 };
 
 /* ------------------------------------------------------------- categories */

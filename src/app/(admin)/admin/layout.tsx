@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/shell";
 import { getSessionUser } from "@/lib/auth/session";
 import { homeFor } from "@/lib/auth/types";
+import { pendingCryptoCount } from "@/lib/admin/queries";
 import { unreadForStaff } from "@/lib/messages/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -18,13 +19,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (user.mustChangePassword || user.role === "customer") redirect(homeFor(user));
 
   const supabase = await createSupabaseServerClient();
-  const [{ count }, unreadInbox] = await Promise.all([
+  const [{ count }, unreadInbox, pendingCrypto] = await Promise.all([
     supabase.from("contact_messages").select("id", { count: "exact", head: true }).is("handled_at", null),
     unreadForStaff(),
+    pendingCryptoCount(),
   ]);
 
   return (
-    <AdminShell user={user} openMessages={count ?? 0} unreadInbox={unreadInbox}>
+    <AdminShell user={user} openMessages={count ?? 0} unreadInbox={unreadInbox} pendingCrypto={pendingCrypto}>
       {children}
     </AdminShell>
   );

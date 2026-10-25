@@ -6,14 +6,19 @@ import { generateTemporaryPassword } from "@/lib/admin/password";
 import { deliverEmailsSoon } from "@/lib/email/outbox";
 import { sendEmail } from "@/lib/email/send";
 import { credentialsEmail, loansOpenEmail } from "@/lib/email/templates";
+import { assetMeta, cryptoAssets, type CryptoAsset, type CryptoNetwork, type CryptoWalletRow } from "@/lib/crypto";
 import { certificateApy, savingsApy } from "@/lib/rates";
 import {
   accountTypes,
   loanTypes,
   cashMovementSchema,
+  cryptoAddressSchema,
+  cryptoPostSchema,
   payeeSchema,
   registerCustomerSchema,
   type CashMovementValues,
+  type CryptoAddressValues,
+  type CryptoPostValues,
   type PayeeInput,
   type RegisterCustomerValues,
 } from "@/lib/schemas";
@@ -438,4 +443,107 @@ export async function emailLoanWaitlist(product: string): Promise<AdminResult> {
   revalidatePath("/admin/waitlist");
   if (problem) return { ok: sent > 0, message: `${sent} emailed, then it stopped: ${problem} The rest will go when you send again.` };
   return { ok: true, message: `${sent} ${sent === 1 ? "person" : "people"} emailed.` };
+}
+
+/* ------------------------------------------------------------------ crypto */
+
+/** Sets the address a customer deposits a coin to, or the one their withdrawals go to. */
+export async function setCryptoAddress(profileId: string, values: CryptoAddressValues): Promise<AdminResult> {
+  const ctx = await staff(true);
+  if (!ctx) return { ok: false, message: "Only an admin can set crypto addresses." };
+  const parsed = cryptoAddressSchema.safeParse(values);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the address and try again." };
+  const v = parsed.data;
+  return saveCryptoWallet(ctx, profileId, v.asset, v.side, { address: v.address, network: v.network, tag: v.tag || null }, v.addedVia);
+}
+
+export async function clearCryptoAddress(profileId: string, asset: CryptoAsset, side: "deposit" | "withdrawal"): Promise<AdminResult> {
+  const ctx = await staff(true);
+  if (!ctx) return { ok: false, message: "Only an admin can change crypto addresses." };
+  if (!cryptoAssets.includes(asset)) return { ok: false, message: "Choose a coin." };
+  return saveCryptoWallet(ctx, profileId, asset, side, null);
+}
+
+/** One side changes; the other is passed back as it is, since the database function sets both. */
+async function saveCryptoWallet(
+  ctx: NonNullable<Awaited<ReturnType<typeof staff>>>,
+  profileId: string,
+  asset: CryptoAsset,
+  side: "deposit" | "withdrawal",
+  address: { address: string; network: CryptoNetwork; tag: string | null } | null,
+  addedVia?: "phone" | "branch",
+): Promise<AdminResult> {
+  const { data: row } = await ctx.supabase
+    .from("crypto_wallets")
+    .select("deposit_address, deposit_network, deposit_tag, withdrawal_address, withdrawal_network, withdrawal_tag")
+    .eq("profile_id", profileId)
+    .eq("asset", asset)
+    .maybeSingle<Omit<CryptoWalletRow, "asset" | "balance">>();
+  const current = {
+    deposit: { address: row?.deposit_address ?? null, network: row?.deposit_network ?? null, tag: row?.deposit_tag ?? null },
+    withdrawal: { address: row?.withdrawal_address ?? null, network: row?.withdrawal_network ?? null, tag: row?.withdrawal_tag ?? null },
+  };
+  current[side] = address ?? { address: null, network: null, tag: null };
+
+  const { error } = await ctx.supabase.rpc("admin_set_crypto_wallet", {
+    p_profile: profileId,
+    p_asset: asset,
+    p_deposit_address: current.deposit.address,
+    p_deposit_network: current.deposit.network,
+    p_deposit_tag: current.deposit.tag,
+    p_withdrawal_address: current.withdrawal.address,
+    p_withdrawal_network: current.withdrawal.network,
+    p_withdrawal_tag: current.withdrawal.tag,
+    p_added_via: addedVia ?? null,
+  });
+  if (error) return { ok: false, message: friendly(error, "The address couldn’t be saved. Try again.") };
+  deliverEmailsSoon();
+  revalidatePath(`/admin/customers/${profileId}`);
+  const symbol = assetMeta[asset].symbol;
+  return {
+    ok: true,
+    message: address ? `${symbol} ${side} address saved. The customer has been notified.` : `${symbol} ${side} address removed.`,
+  };
+}
+
+/** Credits or debits a wallet at once, like a cash deposit or withdrawal. */
+export async function postCrypto(profileId: string, kind: "deposit" | "withdrawal", values: CryptoPostValues): Promise<AdminResult> {
+  const ctx = await staff(true);
+  if (!ctx) return { ok: false, message: "Only an admin can post crypto." };
+  const parsed = cryptoPostSchema.safeParse(values);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the amount and try again." };
+  const { asset, amount, description } = parsed.data;
+  const { error } = await ctx.supabase.rpc("admin_post_crypto", {
+    p_profile: profileId,
+    p_asset: asset,
+    p_kind: kind,
+    p_amount: amount,
+    p_description: description,
+  });
+  if (error) return { ok: false, message: friendly(error, `The ${kind} didn’t go through. Try again.`) };
+  deliverEmailsSoon();
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: kind === "deposit" ? "Crypto deposit posted." : "Crypto withdrawal posted." };
+}
+
+/** Approves or declines a customer's crypto deposit or withdrawal. */
+export async function reviewCrypto(id: string, approve: boolean, reason?: string): Promise<AdminResult> {
+  const ctx = await staff(true);
+  if (!ctx) return { ok: false, message: "Only an admin can approve crypto." };
+  const why = reason?.trim() ?? "";
+  if (!approve && why.length < 5) return { ok: false, message: "Tell the customer why, in a few words." };
+  if (why.length > 200) return { ok: false, message: "Keep the reason under 200 characters." };
+  const { data, error } = await ctx.supabase
+    .rpc("admin_review_crypto", { p_id: id, p_approve: approve, p_reason: approve ? null : why })
+    .single<{ kind: "deposit" | "withdrawal"; profile_id: string }>();
+  if (error || !data) return { ok: false, message: error ? friendly(error, "That didn’t go through. Try again.") : "That didn’t go through." };
+  deliverEmailsSoon();
+  revalidatePath("/admin", "layout");
+  const what = data.kind === "deposit" ? "Deposit" : "Withdrawal";
+  return {
+    ok: true,
+    message: approve
+      ? data.kind === "deposit" ? "Deposit approved and added to their wallet." : "Withdrawal marked as sent."
+      : `${what} declined. The customer has been told why${data.kind === "withdrawal" ? " and the coins are back in their wallet" : ""}.`,
+  };
 }

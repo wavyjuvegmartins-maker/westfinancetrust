@@ -1,11 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import type { ActionResult } from "@/app/actions";
 import type { CardState, Prefs, SpendCategory } from "@/components/dashboard/data";
 import { getSessionUser } from "@/lib/auth/session";
+import { formatCrypto } from "@/lib/crypto";
 import { deliverEmailsSoon } from "@/lib/email/outbox";
-import { billSchema, goalSchema, loanTypes, type BillValues, type GoalValues } from "@/lib/schemas";
+import { pushToStaff } from "@/lib/push/send";
+import {
+  billSchema,
+  cryptoRequestSchema,
+  goalSchema,
+  loanTypes,
+  type BillValues,
+  type CryptoRequestValues,
+  type GoalValues,
+} from "@/lib/schemas";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -283,4 +294,42 @@ export async function signOutOtherDevices(): Promise<ActionResult> {
   if (!ctx) return signedOut;
   const { error } = await ctx.supabase.auth.signOut({ scope: "others" });
   return error ? failed(error) : { ok: true, message: "Signed out everywhere else" };
+}
+
+/* ----------------------------------------------------------------- crypto */
+
+/** "I've sent it": the deposit waits until staff check the coins arrived. */
+export async function requestCryptoDeposit(input: CryptoRequestValues): Promise<ActionResult> {
+  const ctx = await customer();
+  if (!ctx) return signedOut;
+  const parsed = cryptoRequestSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the amount and try again." };
+  const { asset, amount, note } = parsed.data;
+  const { error } = await ctx.supabase.rpc("crypto_request_deposit", { p_asset: asset, p_amount: amount, p_note: note || null });
+  if (error) return failed(error);
+  notifyStaffOfCrypto(ctx.user, `${formatCrypto(amount, asset)} deposit to check`);
+  return done("Deposit sent for checking");
+}
+
+/** The coins are held now and sent by staff, who approve it once they're on their way. */
+export async function requestCryptoWithdrawal(input: CryptoRequestValues): Promise<ActionResult> {
+  const ctx = await customer();
+  if (!ctx) return signedOut;
+  const parsed = cryptoRequestSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the amount and try again." };
+  const { asset, amount, note } = parsed.data;
+  const { error } = await ctx.supabase.rpc("crypto_request_withdrawal", { p_asset: asset, p_amount: amount, p_note: note || null });
+  if (error) return failed(error);
+  notifyStaffOfCrypto(ctx.user, `${formatCrypto(amount, asset)} withdrawal to send`);
+  return done("Withdrawal requested");
+}
+
+function notifyStaffOfCrypto(user: { id: string; firstName: string; lastName: string }, body: string) {
+  after(async () => {
+    try {
+      await pushToStaff({ title: `Crypto from ${user.firstName} ${user.lastName}`, body, url: "/admin/crypto", tag: `crypto-${user.id}` });
+    } catch (e) {
+      console.error("Staff push failed", e);
+    }
+  });
 }

@@ -12,6 +12,7 @@ import {
   type Txn,
 } from "@/components/dashboard/data";
 import type { UserProfile } from "@/lib/auth/types";
+import { toCryptoTxn, toWallets, type CryptoTxnRow, type CryptoWalletRow } from "@/lib/crypto";
 
 /* ------------------------------------------------------ database row shapes */
 
@@ -124,7 +125,7 @@ export async function loadBank(supabase: SupabaseClient, user: UserProfile): Pro
   });
   const ids = accounts.map((a) => a.id);
 
-  const [txns, card, payees, bills, goals, notices, settings, waitlist, billPayments] = await Promise.all([
+  const [txns, card, payees, bills, goals, notices, settings, waitlist, billPayments, wallets, cryptoTxns] = await Promise.all([
     ids.length
       ? supabase.from("transactions").select("*").in("account_id", ids).order("created_at", { ascending: false }).limit(600)
       : Promise.resolve({ data: [] as TxnRow[] }),
@@ -139,6 +140,8 @@ export async function loadBank(supabase: SupabaseClient, user: UserProfile): Pro
       .from("bill_payments")
       .select("bill_id, status")
       .eq("period_start", new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10)),
+    supabase.from("crypto_wallets").select("*").eq("profile_id", user.id),
+    supabase.from("crypto_transactions").select("*").eq("profile_id", user.id).order("created_at", { ascending: false }).limit(100),
   ]);
 
   const s = settings.data;
@@ -202,5 +205,10 @@ export async function loadBank(supabase: SupabaseClient, user: UserProfile): Pro
     hideBalances: s?.hide_balances ?? false,
     monthlyBudget: num(s?.monthly_budget ?? 3000),
     loanWaitlist: (waitlist.data ?? []).map((w) => w.product as string),
+    // Until the crypto migration is run these tables don't exist; the page then shows empty wallets.
+    crypto: {
+      wallets: toWallets((wallets.data ?? []) as CryptoWalletRow[]),
+      txns: ((cryptoTxns.data ?? []) as CryptoTxnRow[]).map(toCryptoTxn),
+    },
   };
 }

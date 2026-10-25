@@ -1,4 +1,5 @@
 import "server-only";
+import { toCryptoTxn, toWallets, type CryptoTxn, type CryptoTxnRow, type CryptoWalletRow } from "@/lib/crypto";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Reads for the admin area. They run as the signed-in staff member, so row
@@ -77,7 +78,7 @@ export async function getCustomer(id: string) {
   const customer = withAccounts(data as never);
   const ids = customer.accounts.map((a) => a.id);
 
-  const [txns, cards, payees] = await Promise.all([
+  const [txns, cards, payees, wallets, cryptoTxns] = await Promise.all([
     ids.length
       ? supabase
           .from("transactions")
@@ -92,6 +93,8 @@ export async function getCustomer(id: string) {
       .select("id, name, bank_name, account_mask, routing_number, added_via, created_at, adder:profiles!payees_added_by_fkey(first_name, last_name)")
       .eq("owner_id", id)
       .order("name"),
+    supabase.from("crypto_wallets").select("*").eq("profile_id", id),
+    supabase.from("crypto_transactions").select("*").eq("profile_id", id).order("created_at", { ascending: false }).limit(40),
   ]);
 
   return {
@@ -108,7 +111,33 @@ export async function getCustomer(id: string) {
       created_at: string;
       adder: { first_name: string; last_name: string } | null;
     }[],
+    crypto: {
+      wallets: toWallets((wallets.data ?? []) as CryptoWalletRow[]),
+      txns: ((cryptoTxns.data ?? []) as CryptoTxnRow[]).map(toCryptoTxn),
+    },
   };
+}
+
+export type AdminCryptoTxn = CryptoTxn & { customer: { id: string; first_name: string; last_name: string; user_id: string } | null };
+
+const cryptoCustomer = "customer:profiles!crypto_transactions_profile_id_fkey(id, first_name, last_name, user_id)";
+
+/** Customer crypto deposits and withdrawals waiting for an admin, oldest first, and the latest ones decided. */
+export async function listCryptoQueue() {
+  const supabase = await createSupabaseServerClient();
+  const [pending, recent] = await Promise.all([
+    supabase.from("crypto_transactions").select(`*, ${cryptoCustomer}`).eq("status", "pending").order("created_at").limit(200),
+    supabase.from("crypto_transactions").select(`*, ${cryptoCustomer}`).neq("status", "pending").order("created_at", { ascending: false }).limit(30),
+  ]);
+  const map = (rows: unknown[] | null) =>
+    ((rows ?? []) as (CryptoTxnRow & { customer: AdminCryptoTxn["customer"] })[]).map((r) => ({ ...toCryptoTxn(r), customer: r.customer }));
+  return { pending: map(pending.data), recent: map(recent.data) };
+}
+
+export async function pendingCryptoCount() {
+  const supabase = await createSupabaseServerClient();
+  const { count } = await supabase.from("crypto_transactions").select("id", { count: "exact", head: true }).eq("status", "pending");
+  return count ?? 0;
 }
 
 export async function getOverview() {
