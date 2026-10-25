@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { motion } from "motion/react";
-import { Bitcoin, ClipboardList, Ellipsis, Globe, Hourglass, Inbox, LayoutDashboard, Loader2, LogOut, Search, UserPlus, Users, type LucideIcon } from "lucide-react";
+import { Bitcoin, ClipboardList, Ellipsis, MonitorSmartphone, Globe, Hourglass, Inbox, LayoutDashboard, Loader2, LogOut, Search, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { signOut } from "@/app/actions";
 import { PushToggle } from "@/components/app/push-toggle";
@@ -24,6 +24,7 @@ const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] 
   { href: "/admin/customers/new", label: "Register customer", icon: UserPlus },
   { href: "/admin/inbox", label: "Inbox", icon: Inbox },
   { href: "/admin/crypto", label: "Crypto approvals", icon: Bitcoin },
+  { href: "/admin/devices", label: "Device approvals", icon: MonitorSmartphone },
   { href: "/admin/messages", label: "Website messages", icon: Globe },
   { href: "/admin/waitlist", label: "Loan waitlist", icon: Hourglass },
   { href: "/admin/audit", label: "Audit log", icon: ClipboardList },
@@ -34,6 +35,7 @@ export function AdminShell({
   openMessages,
   unreadInbox,
   pendingCrypto,
+  pendingDevices,
   children,
 }: {
   user: UserProfile;
@@ -43,11 +45,13 @@ export function AdminShell({
   unreadInbox: number;
   /** Customer crypto deposits and withdrawals waiting for an admin. */
   pendingCrypto: number;
+  /** Customer sign-ins from new devices waiting for an admin (0 for account openers). */
+  pendingDevices: number;
   children: React.ReactNode;
 }) {
   useInboxLive();
   const badge = (href: string) =>
-    href === "/admin/inbox" ? unreadInbox : href === "/admin/messages" ? openMessages : href === "/admin/crypto" ? pendingCrypto : 0;
+    ({ "/admin/inbox": unreadInbox, "/admin/messages": openMessages, "/admin/crypto": pendingCrypto, "/admin/devices": pendingDevices })[href] ?? 0;
   const pathname = usePathname();
   const active = (item: (typeof nav)[number]) =>
     item.exact ? pathname === item.href || (item.href === "/admin/customers" && /^\/admin\/customers\/(?!new)/.test(pathname)) : pathname.startsWith(item.href);
@@ -160,6 +164,13 @@ function useInboxLive() {
           const customerId = String(payload.new.customer_id);
           if (!pathname.endsWith(customerId)) {
             toast("New customer message", { action: { label: "Open", onClick: () => router.push(`/admin/inbox/${customerId}`) } });
+          }
+          router.refresh();
+        })
+        // Only admins receive these: row level security hides device requests from everyone else.
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "device_login_requests" }, () => {
+          if (pathname !== "/admin/devices") {
+            toast("A customer is waiting for device approval", { action: { label: "Open", onClick: () => router.push("/admin/devices") } });
           }
           router.refresh();
         })

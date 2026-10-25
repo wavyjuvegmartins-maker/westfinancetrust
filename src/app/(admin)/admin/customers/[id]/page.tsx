@@ -4,11 +4,12 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CreditCard, MessageCircle } from "lucide-react";
 import { CryptoTxnList } from "@/components/admin/crypto-list";
 import { CryptoAddressRow, CryptoPostButtons } from "@/components/admin/crypto-tools";
+import { RemoveDeviceButton } from "@/components/admin/device-tools";
 import { AddPayeeButton, CashButtons, LoginTools, OpenAccountButton, RemovePayeeButton } from "@/components/admin/customer-tools";
 import { CryptoCoin } from "@/components/crypto-coin";
 import { AdminPanel, PersonBadge, Pill, SignedMoney, StatusPill, money, shortDate, txnLabel } from "@/components/admin/ui";
 import { getSessionUser } from "@/lib/auth/session";
-import { getCustomer, type AdminTxn } from "@/lib/admin/queries";
+import { customerDevices, getCustomer, type AdminTxn } from "@/lib/admin/queries";
 import { assetMeta, formatCrypto } from "@/lib/crypto";
 
 export const metadata: Metadata = { title: "Customer" };
@@ -19,7 +20,7 @@ const payerLine = (t: AdminTxn) =>
 
 export default async function CustomerPage({ params }: PageProps<"/admin/customers/[id]">) {
   const { id } = await params;
-  const [user, data] = await Promise.all([getSessionUser(), getCustomer(id)]);
+  const [user, data, devices] = await Promise.all([getSessionUser(), getCustomer(id), customerDevices(id)]);
   if (!data) notFound();
   const { customer: c, txns, cards, payees, crypto } = data;
   const isAdmin = user?.role === "admin";
@@ -229,6 +230,34 @@ export default async function CustomerPage({ params }: PageProps<"/admin/custome
           <AdminPanel aria-labelledby="login-title" className="max-lg:order-4">
             <h2 id="login-title" className="scroll-mt-32 mb-3 font-heading text-lg font-semibold text-ink">Online banking login</h2>
             <LoginTools profileId={c.id} status={c.status} isAdmin={isAdmin} />
+            {isAdmin && (
+              <div className="mt-5 border-t border-line pt-4">
+                <h3 className="text-sm font-semibold text-ink">Trusted devices</h3>
+                <p className="mt-0.5 text-xs text-slate">Any other device on a new IP address needs approval to sign in.</p>
+                {devices.length ? (
+                  <ul className="mt-2 divide-y divide-line text-sm">
+                    {devices.map((d) => (
+                      <li key={d.device_hash} className="flex items-start justify-between gap-3 py-2.5">
+                        <span className="min-w-0">
+                          <span className="block font-medium text-ink">{d.device}</span>
+                          <span className="block text-xs text-slate">
+                            IP <span className="font-mono text-ink">{d.last_ip ?? "not recorded"}</span>
+                            {d.first_ip && d.first_ip !== d.last_ip ? <>, first <span className="font-mono">{d.first_ip}</span></> : null}
+                          </span>
+                          <span className="block text-xs text-slate">
+                            Last used {shortDate(d.last_seen)}
+                            {d.approver ? `, approved by ${d.approver.first_name} ${d.approver.last_name}` : ""}
+                          </span>
+                        </span>
+                        <RemoveDeviceButton profileId={c.id} deviceHash={d.device_hash} device={d.device} />
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-slate">None yet. Their first sign-in is trusted automatically.</p>
+                )}
+              </div>
+            )}
           </AdminPanel>
 
           <AdminPanel aria-labelledby="cards-title" className="max-lg:order-5">

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { describeDevice } from "@/lib/auth/devices";
 import { getSessionUser } from "@/lib/auth/session";
 import { generateTemporaryPassword } from "@/lib/admin/password";
 import { deliverEmailsSoon } from "@/lib/email/outbox";
@@ -546,4 +547,125 @@ export async function reviewCrypto(id: string, approve: boolean, reason?: string
       ? data.kind === "deposit" ? "Deposit approved and added to their wallet." : "Withdrawal marked as sent."
       : `${what} declined. The customer has been told why${data.kind === "withdrawal" ? " and the coins are back in their wallet" : ""}.`,
   };
+}
+
+/* ---------------------------------------------------------------- devices */
+
+type DeviceRequestRow = { id: string; profile_id: string; device_hash: string; status: string; expires_at: string; ip: string | null; user_agent: string | null };
+
+async function openDeviceRequest(id: string) {
+  const { data } = await createSupabaseAdminClient()
+    .from("device_login_requests")
+    .select("id, profile_id, device_hash, status, expires_at, ip, user_agent")
+    .eq("id", id)
+    .maybeSingle<DeviceRequestRow>();
+  if (!data) return { error: "That request no longer exists." };
+  if (data.status !== "pending") return { error: `That request has already been ${data.status === "cancelled" ? "cancelled by the customer" : data.status}.` };
+  if (new Date(data.expires_at) < new Date()) return { error: "That request has timed out. The customer needs to log in again." };
+  return { request: data };
+}
+
+/** Lets a customer's new device in, after checking with them that it's theirs. The waiting screen then signs them in. */
+export async function approveDevice(requestId: string): Promise<AdminResult> {
+  const ctx = await staff(true);
+  if (!ctx) return { ok: false, message: "Only an admin can approve devices." };
+  const found = await openDeviceRequest(requestId);
+  if (!found.request) return { ok: false, message: found.error };
+  const r = found.request;
+  const admin = createSupabaseAdminClient();
+  const now = new Date().toISOString();
+
+  // Claim it first, so two admins can't both decide it.
+  const { data: claimed } = await admin
+    .from("device_login_requests")
+    .update({ status: "approved", decided_by: ctx.user.id, decided_at: now })
+    .eq("id", r.id)
+    .eq("status", "pending")
+    .select("id");
+  if (!claimed?.length) return { ok: false, message: "Someone else has just decided that request." };
+
+  const { error } = await admin.from("known_devices").upsert(
+    { profile_id: r.profile_id, device_hash: r.device_hash, user_agent: r.user_agent, first_ip: r.ip, last_ip: r.ip, approved_by: ctx.user.id, approved_at: now, last_seen: now },
+    { onConflict: "profile_id,device_hash" },
+  );
+  if (error) {
+    await admin.from("device_login_requests").update({ status: "pending", decided_by: null, decided_at: null }).eq("id", r.id);
+    return { ok: false, message: "The device couldn’t be approved. Try again." };
+  }
+  const device = describeDevice(r.user_agent ?? "");
+  await admin.from("notifications").insert({
+    profile_id: r.profile_id,
+    kind: "security",
+    title: "New device approved",
+    body: `${device} can now sign in to your online banking. If you didn’t ask for this, call us straight away.`,
+  });
+  await admin.from("audit_log").insert({
+    actor_id: ctx.user.id,
+    action: "approve_device",
+    target_type: "profile",
+    target_id: r.profile_id,
+    details: { request_id: r.id, device, ip: r.ip },
+  });
+  deliverEmailsSoon();
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: `${device} approved. The customer’s waiting screen will sign them in.` };
+}
+
+export async function denyDevice(requestId: string, reason?: string): Promise<AdminResult> {
+  const ctx = await staff(true);
+  if (!ctx) return { ok: false, message: "Only an admin can deny devices." };
+  const why = reason?.trim() || null;
+  if (why && why.length > 200) return { ok: false, message: "Keep the reason under 200 characters." };
+  const found = await openDeviceRequest(requestId);
+  if (!found.request) return { ok: false, message: found.error };
+  const r = found.request;
+  const admin = createSupabaseAdminClient();
+  const { data: claimed } = await admin
+    .from("device_login_requests")
+    .update({ status: "denied", decided_by: ctx.user.id, decided_at: new Date().toISOString(), deny_reason: why })
+    .eq("id", r.id)
+    .eq("status", "pending")
+    .select("id");
+  if (!claimed?.length) return { ok: false, message: "Someone else has just decided that request." };
+
+  const device = describeDevice(r.user_agent ?? "");
+  await admin.from("notifications").insert({
+    profile_id: r.profile_id,
+    kind: "security",
+    title: "Sign-in blocked",
+    body: `We blocked a sign-in to your account from ${device}. If it was you, call us and we’ll help. If it wasn’t, change your password now.`,
+  });
+  await admin.from("audit_log").insert({
+    actor_id: ctx.user.id,
+    action: "deny_device",
+    target_type: "profile",
+    target_id: r.profile_id,
+    details: { request_id: r.id, device, ip: r.ip, reason: why },
+  });
+  deliverEmailsSoon();
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: `${device} denied. The customer has been told.` };
+}
+
+/** Forgets a device, so the next sign-in from it (on a new IP) needs approval again. Doesn't end a session already open. */
+export async function removeKnownDevice(profileId: string, deviceHash: string): Promise<AdminResult> {
+  const ctx = await staff(true);
+  if (!ctx) return { ok: false, message: "Only an admin can remove devices." };
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("known_devices")
+    .delete()
+    .eq("profile_id", profileId)
+    .eq("device_hash", deviceHash)
+    .select("user_agent, last_ip");
+  if (!data?.length) return { ok: false, message: "That device has already been removed." };
+  await admin.from("audit_log").insert({
+    actor_id: ctx.user.id,
+    action: "remove_device",
+    target_type: "profile",
+    target_id: profileId,
+    details: { device: describeDevice(data[0].user_agent ?? ""), ip: data[0].last_ip },
+  });
+  revalidatePath(`/admin/customers/${profileId}`);
+  return { ok: true, message: "Device removed." };
 }

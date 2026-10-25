@@ -1,4 +1,5 @@
 import "server-only";
+import { describeDevice } from "@/lib/auth/devices";
 import { toCryptoTxn, toWallets, type CryptoTxn, type CryptoTxnRow, type CryptoWalletRow } from "@/lib/crypto";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -234,4 +235,71 @@ export async function waitlistSummary() {
     const mine = rows.filter((r) => r.product === product);
     return { product, total: mine.length, waiting: mine.filter((r) => !r.notified_at).length };
   });
+}
+
+/* ---------------------------------------------------------------- devices */
+
+// Device requests and known devices are readable by admins only (row level security), IP addresses included.
+
+export type AdminDeviceRequest = {
+  id: string;
+  status: "pending" | "approved" | "denied" | "used" | "cancelled";
+  ip: string | null;
+  user_agent: string | null;
+  device: string;
+  deny_reason: string | null;
+  created_at: string;
+  decided_at: string | null;
+  expires_at: string;
+  customer: { id: string; first_name: string; last_name: string; user_id: string; phone: string | null } | null;
+  decider: { first_name: string; last_name: string } | null;
+};
+
+const deviceRequestSelect =
+  "id, status, ip, user_agent, deny_reason, created_at, decided_at, expires_at, customer:profiles!device_login_requests_profile_id_fkey(id, first_name, last_name, user_id, phone), decider:profiles!device_login_requests_decided_by_fkey(first_name, last_name)";
+
+const withDevice = (rows: unknown[] | null) =>
+  ((rows ?? []) as Omit<AdminDeviceRequest, "device">[]).map((r) => ({ ...r, device: describeDevice(r.user_agent ?? "") }));
+
+/** Sign-ins waiting for approval, oldest first, and the latest ones decided. */
+export async function listDeviceQueue() {
+  const supabase = await createSupabaseServerClient();
+  const now = new Date().toISOString();
+  const [pending, recent] = await Promise.all([
+    supabase.from("device_login_requests").select(deviceRequestSelect).eq("status", "pending").gt("expires_at", now).order("created_at").limit(100),
+    supabase.from("device_login_requests").select(deviceRequestSelect).in("status", ["approved", "denied", "used"]).order("decided_at", { ascending: false }).limit(30),
+  ]);
+  return { pending: withDevice(pending.data), recent: withDevice(recent.data) };
+}
+
+export async function pendingDeviceCount() {
+  const supabase = await createSupabaseServerClient();
+  const { count } = await supabase
+    .from("device_login_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending")
+    .gt("expires_at", new Date().toISOString());
+  return count ?? 0;
+}
+
+export type AdminKnownDevice = {
+  device_hash: string;
+  device: string;
+  user_agent: string | null;
+  first_ip: string | null;
+  last_ip: string | null;
+  first_seen: string;
+  last_seen: string;
+  approver: { first_name: string; last_name: string } | null;
+};
+
+/** The browsers a customer can sign in from without approval. */
+export async function customerDevices(profileId: string): Promise<AdminKnownDevice[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("known_devices")
+    .select("device_hash, user_agent, first_ip, last_ip, first_seen, last_seen, approver:profiles!known_devices_approved_by_fkey(first_name, last_name)")
+    .eq("profile_id", profileId)
+    .order("last_seen", { ascending: false });
+  return ((data ?? []) as unknown as Omit<AdminKnownDevice, "device">[]).map((d) => ({ ...d, device: describeDevice(d.user_agent ?? "") }));
 }

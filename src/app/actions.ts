@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { recordSignIn } from "@/lib/auth/devices";
+import { createClient } from "@supabase/supabase-js";
+import { checkDevice, recordSignIn, requestDeviceApproval } from "@/lib/auth/devices";
 import { getSessionUser } from "@/lib/auth/session";
 import { homeFor } from "@/lib/auth/types";
 import { deliverEmailsSoon } from "@/lib/email/outbox";
@@ -21,6 +22,7 @@ import {
 } from "@/lib/schemas";
 import { site } from "@/lib/site";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ActionResult = { ok: boolean; message: string; redirectTo?: string };
@@ -39,21 +41,49 @@ export async function signIn(values: LoginValues): Promise<ActionResult> {
   const admin = createSupabaseAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("email, status")
+    .select("id, email, status, role, first_name, last_name")
     .eq("user_id", parsed.data.userId.trim().toLowerCase())
-    .maybeSingle<{ email: string; status: string }>();
+    .maybeSingle<{ id: string; email: string; status: string; role: string; first_name: string; last_name: string }>();
 
   if (!profile) return mismatch;
   if (profile.status !== "active") {
     return { ok: false, message: `This login is locked. Call ${site.phone} and we’ll help you get back in.` };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email: profile.email, password: parsed.data.password });
-  if (error) {
-    if (error.status === 429) return { ok: false, message: "Too many attempts. Wait a few minutes, then try again." };
+  // Check the password with a client that keeps no cookies, so no session
+  // reaches this browser until we know the device is allowed in.
+  const verifier = createClient(supabaseUrl(), supabasePublishableKey(), { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: auth, error } = await verifier.auth.signInWithPassword({ email: profile.email, password: parsed.data.password });
+  if (error || !auth.session) {
+    if (error?.status === 429) return { ok: false, message: "Too many attempts. Wait a few minutes, then try again." };
     return mismatch;
   }
+
+  // Customers on a new device with a new IP address wait for staff to approve it.
+  if (profile.role === "customer") {
+    let verdict: Awaited<ReturnType<typeof checkDevice>>;
+    try {
+      verdict = await checkDevice(profile.id);
+    } catch (e) {
+      console.error(e);
+      await verifier.auth.signOut({ scope: "local" });
+      return { ok: false, message: `We couldn’t check your device just now. Try again, or call ${site.phone}.` };
+    }
+    if (verdict === "needs_approval") {
+      await verifier.auth.signOut({ scope: "local" }); // ends the session we just made
+      try {
+        await requestDeviceApproval(profile);
+      } catch (e) {
+        console.error(e);
+        return { ok: false, message: `We couldn’t sign you in just now. Try again, or call ${site.phone}.` };
+      }
+      return { ok: true, message: "Waiting for approval.", redirectTo: "/authorize" };
+    }
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error: sessionError } = await supabase.auth.setSession({ access_token: auth.session.access_token, refresh_token: auth.session.refresh_token });
+  if (sessionError) return { ok: false, message: "We couldn’t sign you in just now. Try again in a moment." };
 
   const user = await getSessionUser();
   if (!user) return mismatch;
