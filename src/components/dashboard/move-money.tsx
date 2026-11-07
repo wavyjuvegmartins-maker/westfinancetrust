@@ -5,9 +5,10 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, ArrowLeftRight, Check, Loader2, Receipt, Send } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Check, Landmark, Loader2, Receipt, Send, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { primaryChecking, spendableAccounts } from "@/components/dashboard/data";
+import { ExternalTransferFlow } from "@/components/dashboard/external-transfer";
 import { upcomingBills } from "@/components/dashboard/selectors";
 import { useBank } from "@/components/dashboard/store";
 import { Avatar, Money } from "@/components/dashboard/ui";
@@ -17,7 +18,7 @@ import { formatMoney } from "@/lib/rates";
 import { cn } from "@/lib/utils";
 
 export type MoveMode = "transfer" | "send" | "bill";
-type Preset = { to?: string; amount?: number };
+type Preset = { to?: string; amount?: number; bank?: boolean };
 
 const modes: { id: MoveMode; label: string; icon: typeof Send; title: string }[] = [
   { id: "transfer", label: "Transfer", icon: ArrowLeftRight, title: "Move money between your accounts" },
@@ -62,7 +63,7 @@ export function MoveMoneyProvider({ children }: { children: React.ReactNode }) {
         >
           <SheetHeader className="px-6 pt-6 pb-2">
             <SheetTitle className="font-heading text-xl font-semibold tracking-[-0.02em]">Move money</SheetTitle>
-            <SheetDescription>Transfers between your accounts arrive instantly.</SheetDescription>
+            <SheetDescription>Transfers between your accounts arrive instantly. Transfers to other banks are checked by our team first.</SheetDescription>
           </SheetHeader>
           {openState && (
             <div className="px-6 pb-8">
@@ -93,6 +94,12 @@ export function MoveMoneyFlow({
   const [step, setStep] = useState<"form" | "review" | "done">("form");
   const [processing, setProcessing] = useState(false);
   const [confirmed, setConfirmed] = useState<Values | null>(null);
+  // Transfer tab: between the customer's own accounts, or to anyone at another bank.
+  const [dest, setDest] = useState<"own" | "bank">(() =>
+    preset?.bank || spendableAccounts(state).length < 2 ? "bank" : "own",
+  );
+  const [bankStep, setBankStep] = useState<"form" | "review" | "done">("form");
+  const toBank = mode === "transfer" && dest === "bank";
 
   const bills = upcomingBills(state).filter((b) => !b.paid);
   const spendable = spendableAccounts(state);
@@ -148,6 +155,7 @@ export function MoveMoneyFlow({
 
   const switchMode = (m: MoveMode) => {
     setMode(m);
+    setBankStep("form");
     const to = m === "transfer" ? transferTo : m === "bill" ? (bills[0]?.id ?? "") : "";
     reset({ from: fromDefault, to, amount: m === "bill" ? bills[0]?.amount : undefined, note: "" });
   };
@@ -183,7 +191,7 @@ export function MoveMoneyFlow({
 
   return (
     <div>
-      {step === "form" && (
+      {step === "form" && bankStep === "form" && (
         <div role="tablist" aria-label="Type of payment" className="mb-6 grid grid-cols-3 gap-1 rounded-2xl bg-canvas p-1">
           {modes.map((m) => (
             <button
@@ -207,8 +215,38 @@ export function MoveMoneyFlow({
         </div>
       )}
 
+      {mode === "transfer" && step === "form" && bankStep === "form" && (
+        <div className="mb-6 grid grid-cols-2 gap-2" role="group" aria-label="Transfer to">
+          {(
+            [
+              { id: "own", label: "My accounts", hint: "Arrives instantly", icon: Wallet },
+              { id: "bank", label: "Another bank", hint: "US or international", icon: Landmark },
+            ] as const
+          ).map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              aria-pressed={dest === d.id}
+              onClick={() => setDest(d.id)}
+              className={cn(
+                "flex items-center gap-3 rounded-2xl px-4 py-3 text-left ring-1 transition-all",
+                dest === d.id ? "bg-amber-soft ring-amber" : "ring-line hover:ring-ink/30",
+              )}
+            >
+              <d.icon className="size-5 shrink-0 text-ink" aria-hidden />
+              <span>
+                <span className="block text-sm font-semibold text-ink">{d.label}</span>
+                <span className="text-xs text-slate">{d.hint}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {toBank && <ExternalTransferFlow onClose={onClose} onStep={setBankStep} />}
+
       <AnimatePresence mode="wait" initial={false}>
-        {step === "form" && (
+        {!toBank && step === "form" && (
           <motion.form
             key={`form-${mode}`}
             onSubmit={onReview}
@@ -226,7 +264,7 @@ export function MoveMoneyFlow({
               </legend>
               {mode === "transfer" && spendable.length < 2 && (
                 <p className="rounded-2xl bg-canvas px-4 py-5 text-sm text-slate">
-                  You need two accounts to move money between them. Ask us about opening a savings account.
+                  You need two accounts to move money between them. To pay someone else, choose Another bank above.
                 </p>
               )}
               {mode === "transfer" && spendable.length >= 2 && (
@@ -377,7 +415,7 @@ export function MoveMoneyFlow({
           </motion.form>
         )}
 
-        {step === "review" && (
+        {!toBank && step === "review" && (
           <motion.div
             key="review"
             initial={{ opacity: 0, x: 16 }}
@@ -405,7 +443,7 @@ export function MoveMoneyFlow({
           </motion.div>
         )}
 
-        {step === "done" && confirmed && (
+        {!toBank && step === "done" && confirmed && (
           <motion.div
             key="done"
             initial={{ opacity: 0, scale: 0.96 }}

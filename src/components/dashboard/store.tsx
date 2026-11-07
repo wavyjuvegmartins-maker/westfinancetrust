@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { ActionResult } from "@/app/actions";
 import type { BankState, CardState, Prefs, SpendCategory } from "@/components/dashboard/data";
-import type { BillValues, CryptoRequestValues, GoalValues } from "@/lib/schemas";
+import type { BillValues, CryptoRequestValues, ExternalTransferValues, GoalValues } from "@/lib/schemas";
 import {
   addToGoal,
   deleteBill,
@@ -15,6 +15,7 @@ import {
   payBill,
   removeMyPayee,
   replaceCard,
+  requestExternalTransfer,
   requestCryptoDeposit,
   requestCryptoWithdrawal,
   saveBill,
@@ -32,6 +33,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 export type Action =
   | { type: "transfer"; from: string; to: string; amount: number; note?: string }
   | { type: "send"; from: string; payeeId: string; amount: number; note?: string }
+  | { type: "externalTransfer"; transfer: ExternalTransferValues }
   | { type: "payBill"; billId: string; from: string }
   | { type: "addToGoal"; goalId: string; from: string; amount: number }
   | { type: "card"; patch: Partial<Pick<CardState, "frozen" | "online" | "contactless" | "atm" | "abroad" | "dailyLimit">> }
@@ -55,6 +57,8 @@ function perform(action: Action, state: BankState): Promise<ActionResult> {
       return transferMoney(action);
     case "send":
       return sendMoney(action);
+    case "externalTransfer":
+      return requestExternalTransfer(action.transfer);
     case "payBill":
       return payBill(action);
     case "addToGoal":

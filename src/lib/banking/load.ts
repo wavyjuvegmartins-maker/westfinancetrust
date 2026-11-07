@@ -7,6 +7,7 @@ import {
   type BankState,
   type Bill,
   type CategoryId,
+  type ExternalTransfer,
   type Notice,
   type SpendCategory,
   type Txn,
@@ -64,6 +65,23 @@ type SettingsRow = {
   activity_emails?: boolean;
   hide_balances: boolean;
   monthly_budget: string | number;
+};
+
+type ExternalTransferRow = {
+  id: string;
+  scope: ExternalTransfer["scope"];
+  account_id: string;
+  amount: string | number;
+  recipient_name: string;
+  bank_name: string;
+  bank_country: string | null;
+  account_number: string;
+  note: string | null;
+  status: ExternalTransfer["status"];
+  reject_reason: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+  txn: { reference: string } | null;
 };
 
 const num = (v: string | number | null | undefined) => (v === null || v === undefined ? 0 : Number(v));
@@ -125,7 +143,7 @@ export async function loadBank(supabase: SupabaseClient, user: UserProfile): Pro
   });
   const ids = accounts.map((a) => a.id);
 
-  const [txns, card, payees, bills, goals, notices, settings, waitlist, billPayments, wallets, cryptoTxns] = await Promise.all([
+  const [txns, card, payees, bills, goals, notices, settings, waitlist, billPayments, wallets, cryptoTxns, transfers] = await Promise.all([
     ids.length
       ? supabase.from("transactions").select("*").in("account_id", ids).order("created_at", { ascending: false }).limit(600)
       : Promise.resolve({ data: [] as TxnRow[] }),
@@ -142,6 +160,12 @@ export async function loadBank(supabase: SupabaseClient, user: UserProfile): Pro
       .eq("period_start", new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10)),
     supabase.from("crypto_wallets").select("*").eq("profile_id", user.id),
     supabase.from("crypto_transactions").select("*").eq("profile_id", user.id).order("created_at", { ascending: false }).limit(100),
+    supabase
+      .from("external_transfers")
+      .select("id, scope, account_id, amount, recipient_name, bank_name, bank_country, account_number, note, status, reject_reason, created_at, reviewed_at, txn:transactions!external_transfers_transaction_id_fkey(reference)")
+      .eq("profile_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
 
   const s = settings.data;
@@ -210,5 +234,24 @@ export async function loadBank(supabase: SupabaseClient, user: UserProfile): Pro
       wallets: toWallets((wallets.data ?? []) as CryptoWalletRow[]),
       txns: ((cryptoTxns.data ?? []) as CryptoTxnRow[]).map(toCryptoTxn),
     },
+    // Empty until the external transfers migration is run.
+    transfers: ((transfers.data ?? []) as unknown as ExternalTransferRow[]).map(
+      (t): ExternalTransfer => ({
+        id: t.id,
+        scope: t.scope,
+        accountId: t.account_id,
+        amount: num(t.amount),
+        recipientName: t.recipient_name,
+        bankName: t.bank_name,
+        bankCountry: t.bank_country ?? undefined,
+        accountMask: t.account_number.slice(-4),
+        note: t.note ?? undefined,
+        status: t.status,
+        rejectReason: t.reject_reason ?? undefined,
+        reference: t.txn?.reference ?? t.id.slice(0, 12).toUpperCase(),
+        date: t.created_at,
+        reviewedAt: t.reviewed_at ?? undefined,
+      }),
+    ),
   };
 }

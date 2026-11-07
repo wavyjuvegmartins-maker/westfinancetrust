@@ -135,6 +135,99 @@ export async function listCryptoQueue() {
   return { pending: map(pending.data), recent: map(recent.data) };
 }
 
+/* ---------------------------------------------------- transfers to other banks */
+
+export type AdminTransfer = {
+  id: string;
+  scope: "domestic" | "international";
+  amount: number;
+  status: "pending" | "completed" | "rejected";
+  recipientName: string;
+  recipientAddress: string | null;
+  bankName: string;
+  bankCountry: string | null;
+  routingNumber: string | null;
+  swiftCode: string | null;
+  accountNumber: string;
+  note: string | null;
+  rejectReason: string | null;
+  reference: string | null;
+  date: string;
+  reviewedAt: string | null;
+  reviewer: { first_name: string; last_name: string } | null;
+  customer: { id: string; first_name: string; last_name: string; user_id: string; phone: string | null } | null;
+  account: { account_number: string; name: string; balance: number } | null;
+};
+
+type TransferRow = {
+  id: string;
+  scope: AdminTransfer["scope"];
+  amount: string | number;
+  status: AdminTransfer["status"];
+  recipient_name: string;
+  recipient_address: string | null;
+  bank_name: string;
+  bank_country: string | null;
+  routing_number: string | null;
+  swift_code: string | null;
+  account_number: string;
+  note: string | null;
+  reject_reason: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+  txn: { reference: string } | null;
+  reviewer: AdminTransfer["reviewer"];
+  customer: AdminTransfer["customer"];
+  account: { account_number: string; name: string; balance: string | number } | null;
+};
+
+const transferSelect = [
+  "*",
+  "txn:transactions!external_transfers_transaction_id_fkey(reference)",
+  "reviewer:profiles!external_transfers_reviewed_by_fkey(first_name, last_name)",
+  "customer:profiles!external_transfers_profile_id_fkey(id, first_name, last_name, user_id, phone)",
+  "account:accounts!external_transfers_account_id_fkey(account_number, name, balance)",
+].join(", ");
+
+const toAdminTransfer = (r: TransferRow): AdminTransfer => ({
+  id: r.id,
+  scope: r.scope,
+  amount: Number(r.amount),
+  status: r.status,
+  recipientName: r.recipient_name,
+  recipientAddress: r.recipient_address,
+  bankName: r.bank_name,
+  bankCountry: r.bank_country,
+  routingNumber: r.routing_number,
+  swiftCode: r.swift_code,
+  accountNumber: r.account_number,
+  note: r.note,
+  rejectReason: r.reject_reason,
+  reference: r.txn?.reference ?? null,
+  date: r.created_at,
+  reviewedAt: r.reviewed_at,
+  reviewer: r.reviewer,
+  customer: r.customer,
+  account: r.account ? { ...r.account, balance: Number(r.account.balance) } : null,
+});
+
+/** Customer transfers to other banks waiting for an admin, oldest first, and the latest ones decided. */
+export async function listTransferQueue() {
+  const supabase = await createSupabaseServerClient();
+  const [pending, recent] = await Promise.all([
+    supabase.from("external_transfers").select(transferSelect).eq("status", "pending").order("created_at").limit(200),
+    supabase.from("external_transfers").select(transferSelect).neq("status", "pending").order("reviewed_at", { ascending: false }).limit(30),
+  ]);
+  const map = (rows: unknown[] | null) => ((rows ?? []) as TransferRow[]).map(toAdminTransfer);
+  return { pending: map(pending.data), recent: map(recent.data), missing: !!pending.error };
+}
+
+export async function pendingTransferCount() {
+  const supabase = await createSupabaseServerClient();
+  const { count } = await supabase.from("external_transfers").select("id", { count: "exact", head: true }).eq("status", "pending");
+  return count ?? 0;
+}
+
 export async function pendingCryptoCount() {
   const supabase = await createSupabaseServerClient();
   const { count } = await supabase.from("crypto_transactions").select("id", { count: "exact", head: true }).eq("status", "pending");

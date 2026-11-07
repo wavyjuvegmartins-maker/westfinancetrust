@@ -10,11 +10,14 @@ import { deliverEmailsSoon } from "@/lib/email/outbox";
 import { pushToStaff } from "@/lib/push/send";
 import {
   billSchema,
+  compactAccount,
   cryptoRequestSchema,
+  externalTransferSchema,
   goalSchema,
   loanTypes,
   type BillValues,
   type CryptoRequestValues,
+  type ExternalTransferValues,
   type GoalValues,
 } from "@/lib/schemas";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -69,6 +72,44 @@ export async function sendMoney(input: { from: string; payeeId: string; amount: 
     p_note: input.note || null,
   });
   return error ? failed(error) : done("Payment sent");
+}
+
+/** Money to someone at another bank: held now, sent once staff approve it. */
+export async function requestExternalTransfer(input: ExternalTransferValues): Promise<ActionResult> {
+  const ctx = await customer();
+  if (!ctx) return signedOut;
+  const parsed = externalTransferSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the transfer details and try again." };
+  const v = parsed.data;
+  const intl = v.scope === "international";
+  const { error } = await ctx.supabase.rpc("request_external_transfer", {
+    p_from: v.from,
+    p_scope: v.scope,
+    p_amount: v.amount,
+    p_recipient_name: v.recipientName,
+    p_bank_name: v.bankName,
+    p_account_number: compactAccount(v.accountNumber),
+    p_routing_number: intl ? null : compactAccount(v.routingNumber ?? ""),
+    p_swift_code: intl ? compactAccount(v.swiftCode ?? "") : null,
+    p_bank_country: intl ? v.bankCountry || null : null,
+    p_recipient_address: intl ? v.recipientAddress || null : null,
+    p_note: v.note || null,
+  });
+  if (error) return failed(error);
+  const user = ctx.user;
+  after(async () => {
+    try {
+      await pushToStaff({
+        title: `Transfer from ${user.firstName} ${user.lastName}`,
+        body: `$${v.amount.toFixed(2)} to ${v.recipientName} at ${v.bankName}${intl ? " (international)" : ""}, waiting for approval`,
+        url: "/admin/transfers",
+        tag: `transfer-${user.id}`,
+      });
+    } catch (e) {
+      console.error("Staff push failed", e);
+    }
+  });
+  return done("Transfer sent for approval");
 }
 
 export async function payBill(input: { billId: string; from: string }): Promise<ActionResult> {

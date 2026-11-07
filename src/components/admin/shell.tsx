@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { motion } from "motion/react";
-import { Bitcoin, ClipboardList, Ellipsis, MonitorSmartphone, Globe, Hourglass, Inbox, LayoutDashboard, Loader2, LogOut, Search, UserPlus, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, Bitcoin, ClipboardList, Ellipsis, MonitorSmartphone, Globe, Hourglass, Inbox, LayoutDashboard, Loader2, LogOut, Search, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { signOut } from "@/app/actions";
 import { PushToggle } from "@/components/app/push-toggle";
@@ -23,6 +23,7 @@ const nav: { href: string; label: string; icon: LucideIcon; exact?: boolean }[] 
   { href: "/admin/customers", label: "Customers", icon: Users, exact: true },
   { href: "/admin/customers/new", label: "Register customer", icon: UserPlus },
   { href: "/admin/inbox", label: "Inbox", icon: Inbox },
+  { href: "/admin/transfers", label: "Transfer approvals", icon: ArrowLeftRight },
   { href: "/admin/crypto", label: "Crypto approvals", icon: Bitcoin },
   { href: "/admin/devices", label: "Device approvals", icon: MonitorSmartphone },
   { href: "/admin/messages", label: "Website messages", icon: Globe },
@@ -36,6 +37,7 @@ export function AdminShell({
   unreadInbox,
   pendingCrypto,
   pendingDevices,
+  pendingTransfers,
   children,
 }: {
   user: UserProfile;
@@ -47,11 +49,19 @@ export function AdminShell({
   pendingCrypto: number;
   /** Customer sign-ins from new devices waiting for an admin (0 for account openers). */
   pendingDevices: number;
+  /** Customer transfers to other banks waiting for an admin. */
+  pendingTransfers: number;
   children: React.ReactNode;
 }) {
   useInboxLive();
   const badge = (href: string) =>
-    ({ "/admin/inbox": unreadInbox, "/admin/messages": openMessages, "/admin/crypto": pendingCrypto, "/admin/devices": pendingDevices })[href] ?? 0;
+    ({
+      "/admin/inbox": unreadInbox,
+      "/admin/messages": openMessages,
+      "/admin/transfers": pendingTransfers,
+      "/admin/crypto": pendingCrypto,
+      "/admin/devices": pendingDevices,
+    })[href] ?? 0;
   const pathname = usePathname();
   const active = (item: (typeof nav)[number]) =>
     item.exact ? pathname === item.href || (item.href === "/admin/customers" && /^\/admin\/customers\/(?!new)/.test(pathname)) : pathname.startsWith(item.href);
@@ -164,6 +174,12 @@ function useInboxLive() {
           const customerId = String(payload.new.customer_id);
           if (!pathname.endsWith(customerId)) {
             toast("New customer message", { action: { label: "Open", onClick: () => router.push(`/admin/inbox/${customerId}`) } });
+          }
+          router.refresh();
+        })
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "external_transfers" }, () => {
+          if (pathname !== "/admin/transfers") {
+            toast("A transfer is waiting for approval", { action: { label: "Open", onClick: () => router.push("/admin/transfers") } });
           }
           router.refresh();
         })

@@ -549,6 +549,25 @@ export async function reviewCrypto(id: string, approve: boolean, reason?: string
   };
 }
 
+/* ---------------------------------------------------- transfers to other banks */
+
+/** Approves (the bank has sent it) or rejects a customer's transfer to another bank. */
+export async function reviewTransfer(id: string, approve: boolean, reason?: string): Promise<AdminResult> {
+  const ctx = await staff(true);
+  if (!ctx) return { ok: false, message: "Only an admin can approve transfers." };
+  const why = reason?.trim() ?? "";
+  if (!approve && why.length < 5) return { ok: false, message: "Tell the customer why, in a few words." };
+  if (why.length > 200) return { ok: false, message: "Keep the reason under 200 characters." };
+  const { error } = await ctx.supabase.rpc("admin_review_external_transfer", { p_id: id, p_approve: approve, p_reason: approve ? null : why });
+  if (error) return { ok: false, message: friendly(error, "That didn’t go through. Try again.") };
+  deliverEmailsSoon();
+  revalidatePath("/admin", "layout");
+  return {
+    ok: true,
+    message: approve ? "Transfer approved. The customer has been told." : "Transfer rejected. The customer has been told why and the money is back in their account.",
+  };
+}
+
 /* ---------------------------------------------------------------- devices */
 
 type DeviceRequestRow = { id: string; profile_id: string; device_hash: string; status: string; expires_at: string; ip: string | null; user_agent: string | null };

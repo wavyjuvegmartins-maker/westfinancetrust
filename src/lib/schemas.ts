@@ -256,3 +256,77 @@ export const cryptoRequestSchema = z
   })
   .refine((v) => fitsDecimals(v.amount, v.asset), { path: ["amount"], error: (iss) => decimalsMessage((iss.input as { asset: CryptoAsset }).asset) });
 export type CryptoRequestValues = z.infer<typeof cryptoRequestSchema>;
+
+/* -------------------------------------------------- transfers to other banks */
+
+/** Spaces and dashes people paste with account numbers, removed. Letters upper-cased for IBANs and SWIFT codes. */
+export const compactAccount = (s: string) => s.replace(/[\s-]/g, "").toUpperCase();
+
+/** IBANs end in a mod-97 check, which catches nearly every typo. */
+export const isValidIban = (raw: string) => {
+  const iban = compactAccount(raw);
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)) return false;
+  const digits = (iban.slice(4) + iban.slice(0, 4)).replace(/[A-Z]/g, (c) => String(c.charCodeAt(0) - 55));
+  let rest = 0;
+  for (const d of digits) rest = (rest * 10 + Number(d)) % 97;
+  return rest === 1;
+};
+
+/** Looks like an IBAN (country letters then check digits), so it gets the IBAN check. */
+export const looksLikeIban = (raw: string) => /^[A-Z]{2}\d{2}/.test(compactAccount(raw));
+
+export const swiftPattern = /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/;
+
+/**
+ * A customer sending money to someone at another bank. Shared by the form and the
+ * server action; the database checks the same rules again
+ * (request_external_transfer in supabase/migrations/20261107000001_external_transfers.sql).
+ */
+export const externalTransferSchema = z
+  .object({
+    scope: z.enum(["domestic", "international"]),
+    from: z.string().min(1, "Choose an account to pay from."),
+    amount: z
+      .number({ error: "Enter an amount." })
+      .positive("Enter an amount above $0.")
+      .max(25_000, "Online transfers are limited to $25,000. Call us for larger amounts.")
+      .refine((n) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6, "Use dollars and cents only."),
+    recipientName: z.string().trim().min(2, "Enter the name on the recipient’s account.").max(80, "Keep the name under 80 characters."),
+    bankName: z.string().trim().min(2, "Enter the recipient’s bank.").max(80, "Keep the bank name under 80 characters."),
+    accountNumber: z.string(),
+    confirmAccountNumber: z.string(),
+    routingNumber: z.string().optional(),
+    swiftCode: z.string().optional(),
+    bankCountry: z.string().trim().max(60, "Keep the country under 60 characters.").optional(),
+    recipientAddress: z.string().trim().max(160, "Keep the address under 160 characters.").optional(),
+    note: z.string().trim().max(60, "Keep the note under 60 characters.").optional(),
+  })
+  .superRefine((v, ctx) => {
+    const account = compactAccount(v.accountNumber ?? "");
+    const issue = (path: string, message: string) => ctx.addIssue({ code: "custom", path: [path], message });
+
+    if (v.scope === "domestic") {
+      const routing = compactAccount(v.routingNumber ?? "");
+      if (!/^\d{9}$/.test(routing)) issue("routingNumber", "Routing numbers are 9 digits.");
+      else if (!isValidRoutingNumber(routing)) issue("routingNumber", "That routing number isn’t valid. Check it with the recipient.");
+      if (!/^\d{4,17}$/.test(account)) issue("accountNumber", "Account numbers are 4 to 17 digits.");
+    } else {
+      const swift = compactAccount(v.swiftCode ?? "");
+      if (!swiftPattern.test(swift)) issue("swiftCode", "SWIFT/BIC codes are 8 or 11 letters and numbers, like DEUTDEFF.");
+      if (!/^[A-Z0-9]{4,34}$/.test(account)) issue("accountNumber", "Enter the IBAN or account number, 4 to 34 letters and numbers.");
+      else if (looksLikeIban(account) && !isValidIban(account)) issue("accountNumber", "That IBAN isn’t valid. Check it with the recipient.");
+      if (!v.bankCountry || v.bankCountry.length < 2) issue("bankCountry", "Enter the country the bank is in.");
+      if (!v.recipientAddress || v.recipientAddress.length < 5) issue("recipientAddress", "Enter the recipient’s address. International banks need it.");
+    }
+
+    if (account && compactAccount(v.confirmAccountNumber ?? "") !== account) {
+      issue("confirmAccountNumber", "The account numbers don’t match. Check them again.");
+    }
+  }, {
+    // Check the bank details even while another field is still wrong, so every problem shows at once.
+    when: (payload) => {
+      const v = payload.value as { scope?: unknown } | undefined;
+      return v?.scope === "domestic" || v?.scope === "international";
+    },
+  });
+export type ExternalTransferValues = z.infer<typeof externalTransferSchema>;

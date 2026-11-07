@@ -62,6 +62,24 @@ export type Bill = {
   status: "paid" | "failed" | null; // this month's payment
 };
 
+/** Money sent to someone at another bank. Waits for our team to approve it. */
+export type ExternalTransfer = {
+  id: string;
+  scope: "domestic" | "international";
+  accountId: string; // paid from
+  amount: number;
+  recipientName: string;
+  bankName: string;
+  bankCountry?: string;
+  accountMask: string; // last 4 of their account number or IBAN
+  note?: string;
+  status: "pending" | "completed" | "rejected";
+  rejectReason?: string;
+  reference: string;
+  date: string; // ISO, when it was asked for
+  reviewedAt?: string;
+};
+
 export type CardState = {
   id: string;
   last4: string;
@@ -104,6 +122,7 @@ export type BankState = {
   loanWaitlist: string[];
   monthlyBudget: number;
   crypto: { wallets: CryptoWallet[]; txns: CryptoTxn[] };
+  transfers: ExternalTransfer[];
 };
 
 /* ------------------------------------------------------------- categories */

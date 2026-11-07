@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Send, Trash2 } from "lucide-react";
+import { Globe, Landmark, Plus, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { TxnList } from "@/components/dashboard/activity";
 import { MoveMoneyFlow, type MoveMode } from "@/components/dashboard/move-money";
 import { useBank } from "@/components/dashboard/store";
-import { Avatar, Money, Panel, PanelHeader } from "@/components/dashboard/ui";
+import { Avatar, Money, Panel, PanelHeader, Pill } from "@/components/dashboard/ui";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { Payee } from "@/components/dashboard/data";
+import type { ExternalTransfer, Payee } from "@/components/dashboard/data";
+import { INTL_PROCESSING_NOTE } from "@/components/dashboard/external-transfer";
 import { formatRate } from "@/lib/rates";
 import { site } from "@/lib/site";
 
@@ -17,7 +18,7 @@ export function MoveView() {
   const { state, run } = useBank();
   const [removing, setRemoving] = useState<Payee | null>(null);
   // Remounting the flow with a new key applies a preset from the side panels.
-  const [flow, setFlow] = useState<{ key: number; mode: MoveMode; to?: string }>({ key: 0, mode: "transfer" });
+  const [flow, setFlow] = useState<{ key: number; mode: MoveMode; to?: string; bank?: boolean }>({ key: 0, mode: "transfer" });
   const recent = state.txns.filter((t) => ["transfer", "p2p", "bill"].includes(t.method) && t.amount < 0).slice(0, 6);
 
   return (
@@ -30,7 +31,7 @@ export function MoveView() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
         <Panel className="lg:col-span-7" aria-label="New payment">
           <div className="mx-auto max-w-lg py-2">
-            <MoveMoneyFlow key={flow.key} initialMode={flow.mode} preset={flow.to ? { to: flow.to } : undefined} />
+            <MoveMoneyFlow key={flow.key} initialMode={flow.mode} preset={flow.to ? { to: flow.to } : flow.bank ? { bank: true } : undefined} />
           </div>
         </Panel>
 
@@ -52,6 +53,30 @@ export function MoveView() {
                 </li>
               ))}
             </ul>
+          </Panel>
+
+          <Panel aria-labelledby="bank-transfers-title">
+            <PanelHeader id="bank-transfers-title" title="Transfers to other banks">
+              Our team approves each one before it’s sent. {INTL_PROCESSING_NOTE}
+            </PanelHeader>
+            {!state.transfers.length && (
+              <p className="rounded-2xl bg-canvas px-4 py-6 text-center text-sm text-slate">No transfers to other banks yet.</p>
+            )}
+            <ul className="divide-y divide-line">
+              {state.transfers.slice(0, 8).map((t) => (
+                <BankTransferRow key={t.id} t={t} />
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => {
+                setFlow({ key: Date.now(), mode: "transfer", bank: true });
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-ink ring-1 ring-line transition-colors hover:ring-amber"
+            >
+              <Plus className="size-3.5" aria-hidden /> New bank transfer
+            </button>
           </Panel>
 
           <Panel aria-labelledby="people-title">
@@ -131,5 +156,39 @@ export function MoveView() {
         </div>
       </div>
     </div>
+  );
+}
+
+function BankTransferRow({ t }: { t: ExternalTransfer }) {
+  const intl = t.scope === "international";
+  const Icon = intl ? Globe : Landmark;
+  return (
+    <li className="flex items-start gap-3 py-3">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-canvas text-ink">
+        <Icon className="size-4.5" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="truncate text-sm font-semibold text-ink">{t.recipientName}</span>
+          {t.status === "pending" && <Pill className="bg-amber-soft text-amber-ink">Awaiting approval</Pill>}
+          {t.status === "completed" && <Pill className="bg-positive/10 text-positive">{intl ? "Approved, processing" : "Sent"}</Pill>}
+          {t.status === "rejected" && <Pill className="bg-negative/10 text-negative">Rejected</Pill>}
+        </span>
+        <span className="block text-xs text-slate">
+          {t.bankName}
+          {t.bankCountry ? `, ${t.bankCountry}` : ""} ••{t.accountMask}
+        </span>
+        {t.status === "rejected" && t.rejectReason && (
+          <span className="mt-1 block rounded-lg bg-negative/5 px-2.5 py-1.5 text-xs text-negative">
+            Reason: {t.rejectReason} The money is back in your account.
+          </span>
+        )}
+        {intl && t.status !== "rejected" && <span className="block text-xs text-slate">{INTL_PROCESSING_NOTE}</span>}
+        <span className="block text-xs text-slate">
+          {new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}, ref {t.reference}
+        </span>
+      </span>
+      <Money value={t.amount} always className={t.status === "rejected" ? "figures text-sm font-semibold text-slate line-through" : "figures text-sm font-semibold text-ink"} />
+    </li>
   );
 }

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/shell";
 import { getSessionUser } from "@/lib/auth/session";
 import { homeFor } from "@/lib/auth/types";
-import { pendingCryptoCount, pendingDeviceCount } from "@/lib/admin/queries";
+import { pendingCryptoCount, pendingDeviceCount, pendingTransferCount } from "@/lib/admin/queries";
 import { unreadForStaff } from "@/lib/messages/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -19,15 +19,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (user.mustChangePassword || user.role === "customer") redirect(homeFor(user));
 
   const supabase = await createSupabaseServerClient();
-  const [{ count }, unreadInbox, pendingCrypto, pendingDevices] = await Promise.all([
+  const [{ count }, unreadInbox, pendingCrypto, pendingDevices, pendingTransfers] = await Promise.all([
     supabase.from("contact_messages").select("id", { count: "exact", head: true }).is("handled_at", null),
     unreadForStaff(),
     pendingCryptoCount(),
     pendingDeviceCount(),
+    pendingTransferCount(),
   ]);
 
   return (
-    <AdminShell user={user} openMessages={count ?? 0} unreadInbox={unreadInbox} pendingCrypto={pendingCrypto} pendingDevices={pendingDevices}>
+    <AdminShell user={user} openMessages={count ?? 0} unreadInbox={unreadInbox} pendingCrypto={pendingCrypto} pendingDevices={pendingDevices} pendingTransfers={pendingTransfers}>
       {children}
     </AdminShell>
   );
