@@ -173,6 +173,7 @@ export type DeviceRequest = {
   status: "pending" | "approved" | "denied" | "used" | "cancelled";
   deny_reason: string | null;
   decided_at: string | null;
+  created_at: string;
   expires_at: string;
   user_agent: string | null;
 };
@@ -183,7 +184,7 @@ export async function currentDeviceRequest() {
   if (!token || !/^[0-9a-f]{64}$/.test(token)) return null;
   const { data } = await createSupabaseAdminClient()
     .from("device_login_requests")
-    .select("id, profile_id, status, deny_reason, decided_at, expires_at, user_agent")
+    .select("id, profile_id, status, deny_reason, decided_at, created_at, expires_at, user_agent")
     .eq("token_hash", sha256(token))
     .maybeSingle<DeviceRequest>();
   return data;

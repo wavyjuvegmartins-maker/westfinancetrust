@@ -354,13 +354,19 @@ const deviceRequestSelect =
 const withDevice = (rows: unknown[] | null) =>
   ((rows ?? []) as Omit<AdminDeviceRequest, "device">[]).map((r) => ({ ...r, device: describeDevice(r.user_agent ?? "") }));
 
-/** Sign-ins waiting for approval, oldest first, and the latest ones decided. */
+/** Sign-ins waiting for approval, oldest first, and the latest ones that ended, newest first. */
 export async function listDeviceQueue() {
   const supabase = await createSupabaseServerClient();
   const now = new Date().toISOString();
   const [pending, recent] = await Promise.all([
     supabase.from("device_login_requests").select(deviceRequestSelect).eq("status", "pending").gt("expires_at", now).order("created_at").limit(100),
-    supabase.from("device_login_requests").select(deviceRequestSelect).in("status", ["approved", "denied", "used"]).order("decided_at", { ascending: false }).limit(30),
+    // Decided, cancelled by the customer, or left unanswered until it expired.
+    supabase
+      .from("device_login_requests")
+      .select(deviceRequestSelect)
+      .or(`status.in.(approved,denied,used,cancelled),and(status.eq.pending,expires_at.lte.${now})`)
+      .order("created_at", { ascending: false })
+      .limit(30),
   ]);
   return { pending: withDevice(pending.data), recent: withDevice(recent.data) };
 }

@@ -11,6 +11,9 @@ const outcome: Record<string, { label: string; className: string }> = {
   approved: { label: "Approved", className: "bg-positive/10 text-positive" },
   used: { label: "Approved, signed in", className: "bg-positive/10 text-positive" },
   denied: { label: "Denied", className: "bg-negative/10 text-negative" },
+  cancelled: { label: "Cancelled by customer", className: "bg-line text-slate" },
+  // Still "pending" in the table, but past its expiry: nobody answered in time.
+  pending: { label: "Expired, not answered", className: "bg-amber-soft text-amber-ink" },
 };
 
 function RequestLine({ r, children }: { r: AdminDeviceRequest; children?: React.ReactNode }) {
@@ -86,7 +89,7 @@ export default async function DevicesPage() {
         </AdminPanel>
 
         <AdminPanel aria-labelledby="devices-recent-title">
-          <h2 id="devices-recent-title" className="mb-2 font-heading text-lg font-semibold text-ink">Recently decided</h2>
+          <h2 id="devices-recent-title" className="mb-2 font-heading text-lg font-semibold text-ink">Recent requests</h2>
           {recent.length ? (
             <ul className="divide-y divide-line">
               {recent.map((r) => (

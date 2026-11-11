@@ -1,9 +1,10 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { currentDeviceRequest, pendingCookie, recordSignIn } from "@/lib/auth/devices";
+import { currentDeviceRequest, describeDevice, pendingCookie, recordSignIn } from "@/lib/auth/devices";
 import { getSessionUser } from "@/lib/auth/session";
 import { homeFor } from "@/lib/auth/types";
+import { site } from "@/lib/site";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -68,7 +69,25 @@ export async function pollDeviceApproval(): Promise<ApprovalState> {
 export async function cancelDeviceSignIn() {
   const request = await currentDeviceRequest();
   if (request?.status === "pending") {
-    await createSupabaseAdminClient().from("device_login_requests").update({ status: "cancelled" }).eq("id", request.id).eq("status", "pending");
+    const admin = createSupabaseAdminClient();
+    const { data: cancelled } = await admin
+      .from("device_login_requests")
+      .update({ status: "cancelled" })
+      .eq("id", request.id)
+      .eq("status", "pending")
+      .select("id");
+    if (cancelled?.length) {
+      // The "waiting for approval" alert sent with this request no longer applies: say it was cancelled instead.
+      await admin
+        .from("notifications")
+        .update({
+          title: "Sign-in cancelled",
+          body: `Someone entered your password on ${describeDevice(request.user_agent ?? "")}, a device we don’t recognise, then cancelled the sign-in before our team approved it. If it wasn’t you, call us on ${site.phone} straight away and change your password.`,
+        })
+        .eq("profile_id", request.profile_id)
+        .eq("title", "Sign-in waiting for approval")
+        .gte("created_at", request.created_at);
+    }
   }
   (await cookies()).delete(pendingCookie);
 }
